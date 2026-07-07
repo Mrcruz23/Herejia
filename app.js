@@ -81,6 +81,15 @@ document.getElementById('btn-load').addEventListener('click', () => {
   document.getElementById('file-input').click();
 });
 
+// Tocar la pantalla (cuando no hay foto cargada aún) también dispara la carga.
+// Una vez que hay foto, el tap-catcher se desactiva para no interferir con
+// el color-picker ni con gestos sobre la imagen.
+const tapCatcher = document.getElementById('tap-catcher');
+tapCatcher.addEventListener('click', () => {
+  if (sourceCanvas) return; // ya hay foto, no interceptar
+  document.getElementById('file-input').click();
+});
+
 document.getElementById('file-input').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -112,12 +121,14 @@ function loadImage(img){
   canvas.height = workH;
 
   emptyState.style.display = 'none';
-  document.getElementById('btn-export').disabled = false;
+  tapCatcher.style.pointerEvents = 'none';
+  document.getElementById('btn-export').classList.remove('is-disabled');
 
   state = { ...DEFAULT_STATE };
   syncSlidersFromState();
   clearPopColorUI();
   scheduleRender();
+  if (typeof setSheetPos === 'function') setSheetPos('semi', true);
 }
 
 // ============================================================
@@ -388,6 +399,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     } else {
       hidePicker();
     }
+    if (sheetPos === 'collapsed') setSheetPos('semi', true);
   });
 });
 
@@ -497,6 +509,8 @@ function showPicker(){
   pickBanner.style.display = 'block';
   canvas.style.cursor = 'crosshair';
   pickingActive = true;
+  // dejamos ver la foto completa mientras se elige el color
+  if (sheetPos !== 'collapsed') setSheetPos('collapsed', true);
 }
 function hidePicker(){
   pickBanner.style.display = 'none';
@@ -533,18 +547,122 @@ canvas.addEventListener('click', (e) => {
   swColorpop.classList.add('on');
   scheduleRender();
   showToast('Color elegido ✓');
+  setSheetPos('semi', true);
 });
 
-document.getElementById('cp-colorwheel').addEventListener('input', (e) => {
-  const hex = e.target.value;
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  setPopColor(r,g,b);
+document.getElementById('btn-open-wheel').addEventListener('click', () => {
+  const wrap = document.getElementById('colorwheel-wrap');
+  const showing = wrap.style.display !== 'none';
+  wrap.style.display = showing ? 'none' : 'flex';
+  if (!showing) drawColorWheel(parseFloat(document.getElementById('cw-brightness').value)/100);
+});
+
+// ---- Rueda de color HSV custom (reemplaza <input type=color>, que en
+// algunos navegadores de escritorio dispara el color-picker nativo del SO
+// y puede colgar la pestaña). Todo dibujado y calculado a mano en canvas. ----
+const cwCanvas = document.getElementById('colorwheel-canvas');
+const cwCtx = cwCanvas.getContext('2d');
+const cwCursor = document.getElementById('cw-cursor');
+const cwBrightnessSlider = document.getElementById('cw-brightness');
+const CW_SIZE = 160;
+const CW_RADIUS = CW_SIZE/2;
+let cwImageData = null;
+
+function hsvToRgb(h, s, v){
+  // h: 0-360, s,v: 0-1
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h/60) % 2) - 1));
+  const m = v - c;
+  let r,g,b;
+  if (h < 60){ r=c; g=x; b=0; }
+  else if (h < 120){ r=x; g=c; b=0; }
+  else if (h < 180){ r=0; g=c; b=x; }
+  else if (h < 240){ r=0; g=x; b=c; }
+  else if (h < 300){ r=x; g=0; b=c; }
+  else { r=c; g=0; b=x; }
+  return { r: Math.round((r+m)*255), g: Math.round((g+m)*255), b: Math.round((b+m)*255) };
+}
+
+function drawColorWheel(brightness){
+  const imgData = cwCtx.createImageData(CW_SIZE, CW_SIZE);
+  const data = imgData.data;
+  for (let y = 0; y < CW_SIZE; y++){
+    for (let x = 0; x < CW_SIZE; x++){
+      const dx = x - CW_RADIUS, dy = y - CW_RADIUS;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const idx = (y*CW_SIZE + x) * 4;
+      if (dist > CW_RADIUS){
+        data[idx+3] = 0; // fuera del círculo: transparente
+        continue;
+      }
+      let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      if (angle < 0) angle += 360;
+      const sat = clamp(dist / CW_RADIUS, 0, 1);
+      const { r, g, b } = hsvToRgb(angle, sat, brightness);
+      data[idx] = r; data[idx+1] = g; data[idx+2] = b; data[idx+3] = 255;
+    }
+  }
+  cwCtx.putImageData(imgData, 0, 0);
+  cwImageData = imgData;
+}
+
+function pickFromWheel(clientX, clientY){
+  const rect = cwCanvas.getBoundingClientRect();
+  const scaleX = CW_SIZE / rect.width;
+  const scaleY = CW_SIZE / rect.height;
+  let x = (clientX - rect.left) * scaleX;
+  let y = (clientY - rect.top) * scaleY;
+
+  const dx = x - CW_RADIUS, dy = y - CW_RADIUS;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist > CW_RADIUS){
+    // clampear al borde del círculo si tocan/arrastran afuera
+    const ratio = CW_RADIUS / dist;
+    x = CW_RADIUS + dx*ratio;
+    y = CW_RADIUS + dy*ratio;
+  }
+
+  const px = Math.min(CW_SIZE-1, Math.max(0, Math.round(x)));
+  const py = Math.min(CW_SIZE-1, Math.max(0, Math.round(y)));
+  const idx = (py*CW_SIZE + px) * 4;
+  if (!cwImageData) return;
+  const r = cwImageData.data[idx], g = cwImageData.data[idx+1], b = cwImageData.data[idx+2];
+
+  setPopColor(r, g, b);
+  cwCursor.style.left = x + 'px';
+  cwCursor.style.top = y + 'px';
+  cwCursor.style.background = `rgb(${r},${g},${b})`;
+
   crosshair.style.display = 'none';
   state.colorpop = true;
   swColorpop.classList.add('on');
   if (sourceCanvas) scheduleRender();
+}
+
+let cwDragging = false;
+cwCanvas.addEventListener('pointerdown', (e) => {
+  cwDragging = true;
+  cwCanvas.setPointerCapture(e.pointerId);
+  pickFromWheel(e.clientX, e.clientY);
+});
+cwCanvas.addEventListener('pointermove', (e) => {
+  if (!cwDragging) return;
+  pickFromWheel(e.clientX, e.clientY);
+});
+cwCanvas.addEventListener('pointerup', () => { cwDragging = false; });
+cwCanvas.addEventListener('pointercancel', () => { cwDragging = false; });
+
+cwBrightnessSlider.addEventListener('input', (e) => {
+  const v = parseFloat(e.target.value) / 100;
+  drawColorWheel(v);
+  // si ya había un cursor posicionado, re-muestrear el color en esa posición
+  // con el nuevo brillo para que el swatch quede coherente
+  const left = parseFloat(cwCursor.style.left);
+  const top = parseFloat(cwCursor.style.top);
+  if (!isNaN(left) && !isNaN(top)){
+    const rect = cwCanvas.getBoundingClientRect();
+    pickFromWheel(rect.left + left * (rect.width/CW_SIZE), rect.top + top * (rect.height/CW_SIZE));
+  }
 });
 
 function setPopColor(r,g,b){
@@ -552,15 +670,11 @@ function setPopColor(r,g,b){
   const sw = document.getElementById('cp-swatch');
   sw.classList.remove('empty');
   sw.style.background = `rgb(${r},${g},${b})`;
-  document.getElementById('cp-colorwheel').value = rgbToHex(r,g,b);
 }
 function clearPopColorUI(){
   const sw = document.getElementById('cp-swatch');
   sw.classList.add('empty');
   sw.style.background = 'none';
-}
-function rgbToHex(r,g,b){
-  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
 }
 
 // ============================================================
@@ -595,10 +709,6 @@ function endCompare(){
 btnCompare.addEventListener('pointerup', endCompare);
 btnCompare.addEventListener('pointerleave', endCompare);
 
-document.getElementById('btn-undo').addEventListener('click', () => {
-  showToast('Usá RESET para volver al original');
-});
-
 document.getElementById('btn-export').addEventListener('click', () => {
   if (!sourceCanvas) return;
   canvas.toBlob((blob) => {
@@ -624,6 +734,87 @@ function showToast(msg){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
 }
+
+// ============================================================
+// BOTTOM SHEET ARRASTRABLE
+// ============================================================
+// Tres posiciones expresadas como % de la altura del sheet que queda
+// visible desde abajo: colapsado (solo el handle asoma), semi (se ven
+// tabs + un poco de controles) y expandido (todo el panel).
+const sheetEl = document.getElementById('sheet');
+const handleArea = document.getElementById('sheet-handle-area');
+
+let sheetHeight = 0;
+let sheetPos = 'semi'; // 'collapsed' | 'semi' | 'expanded'
+let dragStartY = 0;
+let dragStartTranslate = 0;
+let dragging = false;
+let currentTranslate = 0;
+
+function getSnapPixels(){
+  sheetHeight = sheetEl.getBoundingClientRect().height;
+  const collapsedVisible = 46; // px visibles cuando está colapsado (handle + tabs asomando)
+  const semiVisible = Math.min(sheetHeight * 0.42, 340); // altura visible en semi
+  return {
+    collapsed: sheetHeight - collapsedVisible,
+    semi: sheetHeight - semiVisible,
+    expanded: 0
+  };
+}
+
+function setSheetPos(pos, animate = true){
+  sheetPos = pos;
+  const snaps = getSnapPixels();
+  currentTranslate = snaps[pos];
+  sheetEl.classList.toggle('animated', animate);
+  sheetEl.style.transform = `translateY(${currentTranslate}px)`;
+}
+
+function closestSnap(translateY){
+  const snaps = getSnapPixels();
+  const entries = Object.entries(snaps);
+  let best = entries[0];
+  for (const entry of entries){
+    if (Math.abs(entry[1] - translateY) < Math.abs(best[1] - translateY)) best = entry;
+  }
+  return best[0];
+}
+
+function sheetDragStart(clientY){
+  dragging = true;
+  dragStartY = clientY;
+  const snaps = getSnapPixels();
+  dragStartTranslate = snaps[sheetPos];
+  sheetEl.classList.remove('animated');
+}
+function sheetDragMove(clientY){
+  if (!dragging) return;
+  const snaps = getSnapPixels();
+  let next = dragStartTranslate + (clientY - dragStartY);
+  next = Math.max(snaps.expanded, Math.min(snaps.collapsed, next));
+  currentTranslate = next;
+  sheetEl.style.transform = `translateY(${next}px)`;
+}
+function sheetDragEnd(){
+  if (!dragging) return;
+  dragging = false;
+  const snap = closestSnap(currentTranslate);
+  setSheetPos(snap, true);
+}
+
+handleArea.addEventListener('pointerdown', (e) => {
+  handleArea.setPointerCapture(e.pointerId);
+  sheetDragStart(e.clientY);
+});
+handleArea.addEventListener('pointermove', (e) => sheetDragMove(e.clientY));
+handleArea.addEventListener('pointerup', sheetDragEnd);
+handleArea.addEventListener('pointercancel', sheetDragEnd);
+
+window.addEventListener('resize', () => setSheetPos(sheetPos, false));
+
+// posición inicial: semi-abierto
+setSheetPos('semi', false);
+
 
 // ============================================================
 // PWA — registro de service worker

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0a0d0c">
+<meta name="theme-color" content="#171009">
 <title>HEREJÍA — Filtros</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -13,18 +13,26 @@
 
 <style>
   :root{
-    --bg:            #0a0d0c;
-    --bg-raised:     #121615;
-    --bg-well:       #060807;
-    --line:          #232a28;
-    --line-soft:     #1a1f1e;
-    --ink:           #d8ddd9;
-    --ink-dim:       #7d8985;
-    --ink-faint:     #4b5552;
-    --accent:        #6fa89c;
-    --accent-dim:    #3f5b55;
-    --accent-glow:   rgba(111,168,156,0.18);
-    --danger:        #a85f5f;
+    /* ---- dark fantasy / grimorio viejo ---- */
+    --bg:            #0d0906;
+    --bg-photo:      #050403;
+    --bg-raised:     #1c140d;
+    --bg-well:       #120c07;
+    --leather:       #2b1d12;
+    --leather-hi:    #3c2a1a;
+    --line:          #3a2a1a;
+    --line-soft:     #241a10;
+    --parchment:     #cbb08a;
+    --ink:           #e8dcc4;
+    --ink-dim:       #a49070;
+    --ink-faint:     #6b5a44;
+    --accent:        #8a3b32;
+    --accent-hi:     #b4524a;
+    --accent-dim:    #4a2620;
+    --accent-glow:   rgba(138,59,50,0.28);
+    --gold:          #a9812f;
+    --gold-dim:      #6e5a24;
+    --danger:        #8a3b32;
     --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
@@ -32,124 +40,166 @@
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
   html,body{
     margin:0; padding:0; height:100%; overflow:hidden;
-    background:var(--bg); color:var(--ink);
+    background:var(--bg-photo); color:var(--ink);
     font-family:var(--sans);
     -webkit-user-select:none;
     overscroll-behavior:none;
   }
 
   #app{
+    position:fixed; inset:0;
     display:flex; flex-direction:column;
     height:100%; height:100dvh;
     width:100%;
-    padding-top:env(safe-area-inset-top);
-    padding-bottom:env(safe-area-inset-bottom);
   }
 
-  /* ---------- HEADER ---------- */
+  /* ---------- HEADER (pergamino/cuero) ---------- */
   header{
     display:flex; align-items:center; justify-content:space-between;
-    padding:14px 16px 10px;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
     flex-shrink:0;
+    background:linear-gradient(180deg, var(--leather-hi), var(--leather) 70%);
+    border-bottom:1px solid var(--line);
+    box-shadow:0 6px 18px rgba(0,0,0,0.5);
+    position:relative;
+    z-index:20;
   }
   .brand{
-    font-family:var(--mono);
-    font-size:13px;
-    letter-spacing:0.22em;
-    color:var(--ink-dim);
-    display:flex; align-items:center; gap:8px;
+    display:flex; align-items:center; gap:10px;
   }
-  .brand .dot{
-    width:6px; height:6px; border-radius:50%;
-    background:var(--accent);
-    box-shadow:0 0 8px var(--accent-glow);
+  .brand .logo-svg{
+    height:22px; width:auto;
+    color:#1a1210;
+    filter:drop-shadow(0 1px 0 rgba(255,255,255,0.05));
   }
-  .hdr-actions{display:flex; gap:8px;}
+  .brand .cruz-svg{
+    height:26px; width:auto;
+    color:var(--gold);
+    opacity:0.9;
+    margin-left:2px;
+  }
+  .hdr-actions{display:flex; gap:7px;}
   .icon-btn{
-    width:36px; height:36px;
-    border-radius:10px;
-    background:var(--bg-raised);
+    width:34px; height:34px;
+    border-radius:8px;
+    background:var(--bg-well);
     border:1px solid var(--line);
     color:var(--ink-dim);
     display:flex; align-items:center; justify-content:center;
-    font-size:16px;
+    font-size:15px;
     cursor:pointer;
   }
   .icon-btn:active{background:var(--line-soft); color:var(--ink);}
-  .icon-btn.on{color:var(--accent); border-color:var(--accent-dim); background:var(--accent-glow);}
+  .icon-btn.on{color:var(--accent-hi); border-color:var(--accent-dim); background:var(--accent-glow);}
 
-  /* ---------- CANVAS STAGE ---------- */
+  /* ---------- CANVAS STAGE (pantalla completa) ---------- */
   #stage-wrap{
-    flex:1; min-height:0;
-    position:relative;
+    position:absolute;
+    top:0; left:0; right:0; bottom:0;
     display:flex; align-items:center; justify-content:center;
-    padding:6px 14px;
     overflow:hidden;
+    background:var(--bg-photo);
+    z-index:1;
   }
   #stage{
     position:relative;
-    max-width:100%; max-height:100%;
+    width:100%; height:100%;
     display:flex; align-items:center; justify-content:center;
-    border-radius:14px;
-    overflow:hidden;
-    background:var(--bg-well);
-    box-shadow:0 0 0 1px var(--line), 0 30px 60px -20px rgba(0,0,0,0.7);
   }
   canvas{display:block; max-width:100%; max-height:100%; touch-action:none;}
+
+  #tap-catcher{
+    position:absolute; inset:0;
+    z-index:2;
+    cursor:pointer;
+  }
 
   #empty-state{
     position:absolute; inset:0;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:14px; padding:30px; text-align:center;
+    gap:16px; padding:30px; text-align:center;
+    pointer-events:none;
+    z-index:3;
   }
   #empty-state .glyph{
-    width:52px; height:52px; border-radius:50%;
-    border:1px dashed var(--line);
-    display:flex; align-items:center; justify-content:center;
-    font-size:22px; color:var(--ink-faint);
+    width:56px; height:56px;
+    color:var(--gold-dim);
+    opacity:0.7;
   }
-  #empty-state p{margin:0; color:var(--ink-dim); font-size:13.5px; line-height:1.5; max-width:230px;}
-  #empty-state .hint{font-family:var(--mono); font-size:10.5px; letter-spacing:0.08em; color:var(--ink-faint);}
+  #empty-state p{margin:0; color:var(--ink-dim); font-size:14px; line-height:1.5; max-width:240px;}
+  #empty-state .hint{font-family:var(--mono); font-size:10.5px; letter-spacing:0.1em; color:var(--ink-faint);}
 
   .picker-crosshair{
-    position:absolute; width:34px; height:34px;
-    border:2px solid var(--accent);
+    position:absolute; width:36px; height:36px;
+    border:2px solid var(--accent-hi);
     border-radius:50%;
-    box-shadow:0 0 0 2px rgba(0,0,0,0.5), 0 0 14px rgba(111,168,156,0.5);
+    box-shadow:0 0 0 2px rgba(0,0,0,0.6), 0 0 16px var(--accent-glow);
     pointer-events:none;
     transform:translate(-50%,-50%);
     display:none;
+    z-index:5;
   }
   .picker-crosshair::before, .picker-crosshair::after{
-    content:''; position:absolute; background:var(--accent);
+    content:''; position:absolute; background:var(--accent-hi);
   }
-  .picker-crosshair::before{width:1px; height:8px; top:-10px; left:50%; transform:translateX(-50%);}
-  .picker-crosshair::after{width:8px; height:1px; left:-10px; top:50%; transform:translateY(-50%);}
+  .picker-crosshair::before{width:1px; height:9px; top:-11px; left:50%; transform:translateX(-50%);}
+  .picker-crosshair::after{width:9px; height:1px; left:-11px; top:50%; transform:translateY(-50%);}
 
   #pick-banner{
-    position:absolute; top:10px; left:50%; transform:translateX(-50%);
-    background:rgba(6,8,7,0.85); backdrop-filter:blur(6px);
+    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    background:rgba(18,12,7,0.9); backdrop-filter:blur(6px);
     border:1px solid var(--accent-dim);
-    color:var(--accent);
+    color:var(--accent-hi);
     font-family:var(--mono); font-size:10.5px; letter-spacing:0.1em;
-    padding:7px 14px; border-radius:100px;
+    padding:8px 15px; border-radius:100px;
     display:none;
     white-space:nowrap;
+    z-index:6;
+  }
+
+  /* ---------- BOTTOM SHEET (arrastrable) ---------- */
+  #sheet{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    z-index:15;
+    background:linear-gradient(180deg, var(--leather) 0%, var(--bg-raised) 40px, var(--bg-raised) 100%);
+    border-top:1px solid var(--line);
+    border-radius:16px 16px 0 0;
+    box-shadow:0 -8px 30px rgba(0,0,0,0.55);
+    display:flex; flex-direction:column;
+    height:100%;
+    transform:translateY(0);
+    will-change:transform;
+  }
+  #sheet.animated{transition:transform 0.32s cubic-bezier(.32,.86,.34,1);}
+
+  #sheet-handle-area{
+    flex-shrink:0;
+    padding:14px 0 12px;
+    display:flex; flex-direction:column; align-items:center;
+    cursor:grab;
+    touch-action:none;
+  }
+  #sheet-handle{
+    width:38px; height:4px; border-radius:3px;
+    background:var(--ink-faint);
+    opacity:0.6;
   }
 
   /* ---------- TABS ---------- */
   #tabs{
-    display:flex; gap:6px;
-    padding:10px 16px 8px;
+    display:flex; gap:5px;
+    padding:2px 14px 10px;
     flex-shrink:0;
     overflow-x:auto;
     scrollbar-width:none;
+    border-bottom:1px solid var(--line-soft);
   }
   #tabs::-webkit-scrollbar{display:none;}
   .tab{
-    font-family:var(--mono); font-size:11px; letter-spacing:0.08em;
-    padding:8px 13px;
-    border-radius:9px;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:0.07em;
+    padding:8px 12px;
+    border-radius:8px;
     background:transparent;
     color:var(--ink-faint);
     border:1px solid transparent;
@@ -157,23 +207,22 @@
     cursor:pointer;
   }
   .tab.active{
-    color:var(--accent); background:var(--accent-glow);
+    color:var(--accent-hi); background:var(--accent-glow);
     border-color:var(--accent-dim);
   }
 
   /* ---------- PANELS ---------- */
   #panel-area{
-    flex-shrink:0;
-    max-height:38vh;
+    flex:1; min-height:0;
     overflow-y:auto;
-    padding:4px 16px 18px;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
     -webkit-overflow-scrolling:touch;
   }
   .panel{display:none;}
   .panel.active{display:block;}
 
   /* sliders */
-  .slider-row{margin-bottom:16px;}
+  .slider-row{margin-bottom:17px;}
   .slider-row:last-child{margin-bottom:2px;}
   .slider-label{
     display:flex; justify-content:space-between; align-items:baseline;
@@ -181,7 +230,7 @@
     font-family:var(--mono); font-size:11px; letter-spacing:0.06em;
     color:var(--ink-dim);
   }
-  .slider-label .val{color:var(--accent); font-variant-numeric:tabular-nums;}
+  .slider-label .val{color:var(--accent-hi); font-variant-numeric:tabular-nums;}
   input[type=range]{
     -webkit-appearance:none; appearance:none;
     width:100%; height:28px;
@@ -194,15 +243,15 @@
   input[type=range]::-webkit-slider-thumb{
     -webkit-appearance:none;
     width:17px; height:17px; border-radius:50%;
-    background:var(--ink);
-    border:2px solid var(--bg);
+    background:var(--parchment);
+    border:2px solid var(--bg-well);
     box-shadow:0 0 0 1px var(--accent-dim), 0 2px 6px rgba(0,0,0,0.5);
     margin-top:-7px;
   }
   input[type=range]::-moz-range-track{height:3px; background:var(--line); border-radius:2px;}
   input[type=range]::-moz-range-thumb{
     width:17px; height:17px; border-radius:50%;
-    background:var(--ink); border:2px solid var(--bg);
+    background:var(--parchment); border:2px solid var(--bg-well);
     box-shadow:0 0 0 1px var(--accent-dim);
   }
 
@@ -213,29 +262,30 @@
   }
   .preset-card{
     aspect-ratio:1;
-    border-radius:11px;
+    border-radius:10px;
     border:1px solid var(--line);
-    background:var(--bg-raised);
+    background:var(--bg-well);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     gap:6px;
     cursor:pointer;
     position:relative;
     overflow:hidden;
   }
-  .preset-card.active{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent-dim), 0 0 16px var(--accent-glow);}
+  .preset-card.active{border-color:var(--accent-hi); box-shadow:0 0 0 1px var(--accent-dim), 0 0 16px var(--accent-glow);}
   .preset-card .swatch{
-    width:30px; height:30px; border-radius:8px;
+    width:28px; height:28px; border-radius:7px;
     flex-shrink:0;
+    border:1px solid rgba(0,0,0,0.3);
   }
   .preset-card span{
-    font-family:var(--mono); font-size:9.5px; letter-spacing:0.05em;
+    font-family:var(--mono); font-size:9px; letter-spacing:0.04em;
     color:var(--ink-dim); text-align:center; padding:0 6px;
   }
   .preset-card.active span{color:var(--ink);}
   .preset-card .del{
     position:absolute; top:4px; right:4px;
     width:18px; height:18px; border-radius:5px;
-    background:rgba(6,8,7,0.7);
+    background:rgba(18,12,7,0.75);
     color:var(--ink-faint);
     font-size:10px;
     display:flex; align-items:center; justify-content:center;
@@ -246,7 +296,7 @@
   /* color-pop panel */
   .colorpop-row{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
   .cp-swatch{
-    width:44px; height:44px; border-radius:12px;
+    width:44px; height:44px; border-radius:11px;
     border:2px solid var(--line);
     flex-shrink:0;
     position:relative;
@@ -256,21 +306,14 @@
   }
   .cp-actions{display:flex; flex-direction:column; gap:6px; flex:1;}
   .btn-line{
-    font-family:var(--mono); font-size:11px; letter-spacing:0.06em;
-    padding:9px 12px; border-radius:9px;
-    background:var(--bg-raised); border:1px solid var(--line);
+    font-family:var(--mono); font-size:11px; letter-spacing:0.05em;
+    padding:9px 12px; border-radius:8px;
+    background:var(--bg-well); border:1px solid var(--line);
     color:var(--ink); text-align:center;
     cursor:pointer;
   }
-  .btn-line.primary{border-color:var(--accent-dim); color:var(--accent);}
+  .btn-line.primary{border-color:var(--accent-dim); color:var(--accent-hi);}
   .btn-line:active{background:var(--line-soft);}
-  input[type=color]{
-    -webkit-appearance:none; appearance:none;
-    width:100%; height:38px; border:none; border-radius:9px;
-    background:none; cursor:pointer; padding:0;
-  }
-  input[type=color]::-webkit-color-swatch-wrapper{padding:0; border-radius:9px;}
-  input[type=color]::-webkit-color-swatch{border:1px solid var(--line); border-radius:9px;}
 
   .toggle-row{
     display:flex; align-items:center; justify-content:space-between;
@@ -284,72 +327,98 @@
     background:var(--line); position:relative; flex-shrink:0;
     border:1px solid var(--line);
   }
-  .switch.on{background:var(--accent-dim); border-color:var(--accent);}
+  .switch.on{background:var(--accent-dim); border-color:var(--accent-hi);}
   .switch::after{
     content:''; position:absolute; top:2px; left:2px;
     width:18px; height:18px; border-radius:50%;
     background:var(--ink-dim);
     transition:transform 0.15s ease, background 0.15s ease;
   }
-  .switch.on::after{transform:translateX(18px); background:var(--accent);}
+  .switch.on::after{transform:translateX(18px); background:var(--accent-hi);}
+
+  /* ---- rueda de color custom (reemplaza <input type=color>) ---- */
+  #colorwheel-wrap{
+    display:flex; flex-direction:column; align-items:center; gap:12px;
+    padding:6px 0 4px;
+  }
+  #colorwheel-canvas{
+    border-radius:50%;
+    cursor:crosshair;
+    touch-action:none;
+    box-shadow:0 0 0 1px var(--line), 0 4px 14px rgba(0,0,0,0.4);
+  }
+  #cw-cursor{
+    position:absolute;
+    width:16px; height:16px;
+    border-radius:50%;
+    border:2px solid #fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.4);
+    pointer-events:none;
+    transform:translate(-50%,-50%);
+  }
+  #cw-relative{position:relative;}
+  #cw-brightness{
+    width:180px;
+  }
 
   /* ---------- BOTTOM BAR ---------- */
   #bottombar{
     display:flex; gap:8px;
-    padding:10px 16px 14px;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
     flex-shrink:0;
     border-top:1px solid var(--line-soft);
+    background:var(--bg-raised);
   }
   .action-btn{
     flex:1;
     display:flex; align-items:center; justify-content:center; gap:7px;
-    padding:13px 10px; border-radius:12px;
-    font-family:var(--mono); font-size:11.5px; letter-spacing:0.05em;
-    background:var(--bg-raised); border:1px solid var(--line);
+    padding:13px 10px; border-radius:10px;
+    font-family:var(--mono); font-size:11px; letter-spacing:0.04em;
+    background:var(--bg-well); border:1px solid var(--line);
     color:var(--ink);
     cursor:pointer;
   }
   .action-btn.primary{
-    background:var(--accent); border-color:var(--accent); color:#08110f;
+    background:var(--accent); border-color:var(--accent-hi); color:var(--ink);
     font-weight:600;
   }
   .action-btn:active{opacity:0.75;}
-  .action-btn:disabled{opacity:0.35; pointer-events:none;}
+  .action-btn.is-disabled{opacity:0.35; pointer-events:none;}
 
   #file-input{display:none;}
 
   /* toast */
   #toast{
-    position:fixed; bottom:calc(90px + env(safe-area-inset-bottom));
-    left:50%; transform:translateX(-50%) translateY(10px);
+    position:fixed; top:calc(70px + env(safe-area-inset-top));
+    left:50%; transform:translateX(-50%) translateY(-10px);
     background:var(--bg-raised); border:1px solid var(--accent-dim);
     color:var(--ink); font-family:var(--mono); font-size:11.5px;
     padding:10px 18px; border-radius:100px;
     opacity:0; pointer-events:none;
     transition:opacity 0.2s ease, transform 0.2s ease;
-    z-index:50; white-space:nowrap;
+    z-index:80; white-space:nowrap;
   }
   #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 
   /* save preset modal */
   .modal-scrim{
-    position:fixed; inset:0; background:rgba(4,5,5,0.7);
+    position:fixed; inset:0; background:rgba(8,5,3,0.75);
     display:none; align-items:flex-end; justify-content:center;
-    z-index:60; backdrop-filter:blur(3px);
+    z-index:90; backdrop-filter:blur(3px);
   }
   .modal-scrim.show{display:flex;}
   .modal-sheet{
     width:100%; max-width:480px;
     background:var(--bg-raised); border:1px solid var(--line);
     border-bottom:none;
-    border-radius:20px 20px 0 0;
+    border-radius:18px 18px 0 0;
     padding:20px 18px calc(20px + env(safe-area-inset-bottom));
   }
   .modal-sheet h3{
     margin:0 0 14px; font-size:15px; font-weight:600; color:var(--ink);
   }
   .modal-sheet input[type=text]{
-    width:100%; padding:12px 14px; border-radius:10px;
+    width:100%; padding:12px 14px; border-radius:9px;
     background:var(--bg-well); border:1px solid var(--line);
     color:var(--ink); font-size:14px; font-family:var(--sans);
     margin-bottom:14px;
@@ -366,11 +435,13 @@
 <div id="app">
 
   <header>
-    <div class="brand"><span class="dot"></span>HEREJÍA</div>
+    <div class="brand">
+      <svg class="logo-svg" viewBox="0 0 89.91175 28.41071" xmlns="http://www.w3.org/2000/svg" aria-label="Herejía"><path fill="currentColor" d="M29.7055,22.26977a13.59938,13.59938,0,0,0-3.80944-2.07334V15.546h1.25045a1.43956,1.43956,0,0,1,1.50985,1.13391c.10592-.9859,1.93057-1.86249,2.677-1.86249-.74645,0-2.5711-.87662-2.677-1.86253a1.43956,1.43956,0,0,1-1.50985,1.13392H25.89606V9.81717a5.43221,5.43221,0,0,1,.401-2.13641A9.96882,9.96882,0,0,0,29.84084,9.513a5.59985,5.59985,0,0,1,.02706,1.46576,27.57319,27.57319,0,0,1,2.93932-4.41735c-1.65286,1.49465-4.10092-.179-4.8878-1.30312-.57454.84933-3.89063,3.86568-5.57054,4.14671.79935.36222.89926.73691.89926,1.224v8.94289c0,1.34849,0,1.34849-.89926,2.27319,1.4426-.37469,5.28329,2.11705,5.608,3.23494.37469-.83685,4.2029-3.61589,4.58385-5.09595A12.531,12.531,0,0,1,29.7055,22.26977Z"/><path fill="currentColor" d="M64.56615,9.21679a1.79077,1.79077,0,0,0-.55148,1.49968V24.73032c-2.2014-3.44725-5.83182-3.55967-4.52213-5.92587-1.20415,1.21052-2.08407,2.029-3.42786,3.2868,1.70218-.11756,5.56543,3.67575,5.7278,5.93645.57454-.84933,4.08945-5.531,5.76937-5.812-.79935-.36221-.89927-.7369-.89927-1.224V10.21687c0-1.34849-.03228-1.56542,1.59975-3.28072C65.49578,8.512,60.40608,6.23879,60.18126,5.071c-.37469.83684-2.62128,2.50383-3.70955,4.07176C59.45267,6.36993,60.4269,10.40839,64.56615,9.21679Z"/><path fill="currentColor" d="M53.03694,22.26977a13.59958,13.59958,0,0,0-3.80945-2.07334V15.546h1.25045a1.43956,1.43956,0,0,1,1.50985,1.13391c.10593-.9859,1.93058-1.86249,2.677-1.86249-.74644,0-2.57109-.87662-2.677-1.86253a1.43956,1.43956,0,0,1-1.50985,1.13392H49.22749V9.81717a5.43239,5.43239,0,0,1,.40095-2.13641A9.96891,9.96891,0,0,0,53.17227,9.513a5.59941,5.59941,0,0,1,.02706,1.46576,27.57456,27.57456,0,0,1,2.93932-4.41735c-1.65286,1.49465-4.10092-.179-4.88779-1.30312-.57455.84933-3.89063,3.86568-5.57055,4.14671.79935.36222.89926.73691.89926,1.224v8.94289c0,1.34849,0,1.34849-.89926,2.27319,1.4426-.37469,5.28329,2.11705,5.608,3.23494.37469-.83685,4.20291-3.61589,4.58385-5.09595A12.53091,12.53091,0,0,1,53.03694,22.26977Z"/><path fill="currentColor" d="M73.86873,9.89838V20.61843c0,.43154-.09907,1.31777,1.16267,1.50985-1.28013.10592-2.41838,1.93057-2.41838,2.677,0-.74645-1.13819-2.5711-2.41832-2.677,1.26173-.19208,1.16266-1.07831,1.16266-1.50985V10.75811c0-.96061-.77276-2.16906-1.86476-1.89016a31.54406,31.54406,0,0,0,2.56046-2.65414,3.82557,3.82557,0,0,0,.84087,1.05157,3.16539,3.16539,0,0,0,1.807,1.11545A2.00819,2.00819,0,0,0,73.86873,9.89838Z"/><path fill="currentColor" d="M88.433,22.03518a2.18877,2.18877,0,0,1-1.44975-1.82627V9.89838a2.00819,2.00819,0,0,1,.83221-1.51756c-1.90472-.03121-4.6088-2.23573-4.78159-2.96012A32.30917,32.30917,0,0,1,80.1841,7.8c-2.47077,2.21382-2.142,3.43479-1.30523,4.27786C77.51745,9.87339,80.5638,8.30375,81.009,8.04916a9.41645,9.41645,0,0,0,3.463,1.86795V11.8848c-1.83681.93109-5.34788,3.15359-6.97941,4.09a1.26,1.26,0,0,1,.6428,1.14494v3.49872c0,.43154-.112.777-1.16268,1.50986a6.10739,6.10739,0,0,1,3.7215,2.677A50.93709,50.93709,0,0,1,84.484,21.04538c.12047,2.12987,1.17667,1.81331,2.272,3.64329,1.39055-1.9651,2.50633-2.41475,3.15579-3.53053A3.33306,3.33306,0,0,1,88.433,22.03518Zm-7.78637-1.41675V15.68751a1.34559,1.34559,0,0,1,.62618-1.33129c1.05567-.74882,2.3981-1.62223,3.19906-2.09245v8.27812a22.05205,22.05205,0,0,1-1.98756,1.62379A8.43831,8.43831,0,0,1,80.64667,20.61843Z"/><path fill="currentColor" d="M43.85676,23.2648c0-5.52659.74914-7.79584-2.86018-9.48264l.08737-.06808c1.537-1.20663,2.981-2.28985,2.981-3.43061,0-2.80817-2.73114-3.6325-2.88935-4.89609L37.79893,8.48661a2.29589,2.29589,0,0,0-.95131-1.82075,3.826,3.826,0,0,1-.84089-1.0516A31.53752,31.53752,0,0,1,33.44628,8.2684c1.092-.27889,1.86478.92957,1.86478,1.89017V20.61843c0,.43154.099,1.31778-1.16267,1.50986,1.28013.10592,2.4183,1.93057,2.4183,2.677,0-.74644,1.13828-2.57109,2.41838-2.677-1.26172-.19208-1.16264-1.07832-1.16264-1.50986v-4.444c.36605-.26465.87431-.63855,1.45587-1.07558a4.30344,4.30344,0,0,1,2.21783,4.09833c0,3.66789-.587,7.73135,4.55886,9.21348C43.98166,27.22831,43.85676,24.747,43.85676,23.2648Zm-3.72205-9.40916c-.66436.55436-1.89515,1.43071-2.31228,1.72519V9.17838A18.79176,18.79176,0,0,1,39.3853,7.81879c1.384,1.199,2.17328,2.20449,2.17328,3.389A2.999,2.999,0,0,1,40.13471,13.85564Z"/><path fill="currentColor" d="M73.84232,1.36951c-.90259,1.47805-.239,2.00833-1.58032,4.57812,2.13843-1.36382,2.40763-2.97893,3.81167-3.19578A4.32674,4.32674,0,0,1,73.84232,1.36951Z"/><path fill="currentColor" d="M18.86415,19.93413V5.7704c0-3.006.74941-4.7046,2.58961-4.7046A1.36486,1.36486,0,0,0,20.86256,0c-.51628.57454-2.75616.866-3.75536.866S13.86811.57454,13.35187,0a1.36483,1.36483,0,0,0-.5912,1.0658c1.8402,0,2.58961,1.69865,2.58961,4.7046v5.837H6.10345V5.7704c0-3.006.74941-4.7046,2.58961-4.7046A1.36486,1.36486,0,0,0,8.10186,0C7.58562.57454,5.34574.866,4.34653.866S1.10745.57454.59117,0A1.36491,1.36491,0,0,0,0,1.0658c1.8402,0,2.58958,1.69865,2.58958,4.7046V19.93413c0,3.414-.63281,4.72748-2.29814,4.72748A1.60138,1.60138,0,0,0,.90966,25.8107a8.06384,8.06384,0,0,1,3.43687-.78062,8.06343,8.06343,0,0,1,3.43683.78062,1.60134,1.60134,0,0,0,.61827-1.14909c-1.66534,0-2.29818-1.31353-2.29818-4.72748V14.23865h9.24683v5.69548c0,3.414-.63284,4.72748-2.29818,4.72748a1.6013,1.6013,0,0,0,.61827,1.14909,5.14829,5.14829,0,0,1,1.27263-.47924c2.80952-.70939,4.02524,3.03346,6.91877,3.03346C18.98486,26.51225,18.86415,23.34808,18.86415,19.93413Z"/></svg>
+      <svg class="cruz-svg" viewBox="0 0 25.62612 32.00489" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M14.25792,11.36821h5.08144a1.02243,1.02243,0,0,0,1.04779-.99265c0-.49632-.40808-.40809-.66176-.2647A1.338,1.338,0,0,1,21.18663,8.7997c1.301,0,1.88733,1.73317,1.36748,2.61315,1.41592-1.04637,2.4083.98408,3.072,1.40021-.66371.41614-1.65609,2.44659-3.072,1.40022.51985.88-.06644,2.61315-1.36748,2.61315a1.33805,1.33805,0,0,1-1.46124-1.31116c.25368.14338.66176.23162.66176-.26471a1.02243,1.02243,0,0,0-1.04779-.99264H14.25792v11.4602a1.02243,1.02243,0,0,0,.99264,1.0478c.49633,0,.40809-.40809.26471-.66177a1.33806,1.33806,0,0,1,1.31116,1.46125c0,1.301-1.73318,1.88732-2.61315,1.36747,1.04637,1.41592-.98408,2.40831-1.40022,3.072-.41613-.66371-2.44658-1.6561-1.40021-3.072-.88.51985-2.61315-.06643-2.61315-1.36747a1.33806,1.33806,0,0,1,1.31116-1.46125c-.14339.25368-.23162.66177.2647.66177a1.02244,1.02244,0,0,0,.99265-1.0478V14.25792H6.28676a1.02243,1.02243,0,0,0-1.04779.99264c0,.49633.40809.40809.66177.26471a1.33806,1.33806,0,0,1-1.46125,1.31116c-1.301,0-1.88733-1.73318-1.36747-2.61315C1.6561,15.25965.66371,13.2292,0,12.81306c.66371-.41613,1.6561-2.44658,3.072-1.40021-.51986-.88.06643-2.61315,1.36747-2.61315a1.33806,1.33806,0,0,1,1.46125,1.31116c-.25368-.14339-.66177-.23162-.66177.2647a1.02243,1.02243,0,0,0,1.04779.99265h5.08145V6.28676A1.02243,1.02243,0,0,0,10.37556,5.239c-.49632,0-.40809.40809-.2647.66177A1.33806,1.33806,0,0,1,8.7997,4.43949c0-1.301,1.73317-1.88733,2.61315-1.36747C10.36648,1.6561,12.39693.66371,12.81306,0c.41614.66371,2.44659,1.6561,1.40022,3.072.88-.51986,2.61315.06643,2.61315,1.36747a1.33806,1.33806,0,0,1-1.31116,1.46125c.14338-.25368.23162-.66177-.26471-.66177a1.02243,1.02243,0,0,0-.99264,1.04779Z"/></svg>
+    </div>
     <div class="hdr-actions">
-      <div class="icon-btn" id="btn-undo" title="Deshacer">↺</div>
       <div class="icon-btn" id="btn-compare" title="Comparar (mantener)">◐</div>
-      <div class="icon-btn" id="btn-reset" title="Resetear todo">✕</div>
+      <div class="icon-btn" id="btn-reset" title="Resetear todo">↺</div>
     </div>
   </header>
 
@@ -378,135 +449,150 @@
     <div id="stage">
       <canvas id="canvas"></canvas>
       <div id="empty-state">
-        <div class="glyph">＋</div>
-        <p>Elegí una foto para empezar a aplicarle el filtro</p>
-        <div class="hint">TOCÁ "CARGAR FOTO" ABAJO</div>
+        <svg class="glyph" viewBox="0 0 25.62612 32.00489" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M14.25792,11.36821h5.08144a1.02243,1.02243,0,0,0,1.04779-.99265c0-.49632-.40808-.40809-.66176-.2647A1.338,1.338,0,0,1,21.18663,8.7997c1.301,0,1.88733,1.73317,1.36748,2.61315,1.41592-1.04637,2.4083.98408,3.072,1.40021-.66371.41614-1.65609,2.44659-3.072,1.40022.51985.88-.06644,2.61315-1.36748,2.61315a1.33805,1.33805,0,0,1-1.46124-1.31116c.25368.14338.66176.23162.66176-.26471a1.02243,1.02243,0,0,0-1.04779-.99264H14.25792v11.4602a1.02243,1.02243,0,0,0,.99264,1.0478c.49633,0,.40809-.40809.26471-.66177a1.33806,1.33806,0,0,1,1.31116,1.46125c0,1.301-1.73318,1.88732-2.61315,1.36747,1.04637,1.41592-.98408,2.40831-1.40022,3.072-.41613-.66371-2.44658-1.6561-1.40021-3.072-.88.51985-2.61315-.06643-2.61315-1.36747a1.33806,1.33806,0,0,1,1.31116-1.46125c-.14339.25368-.23162.66177.2647.66177a1.02244,1.02244,0,0,0,.99265-1.0478V14.25792H6.28676a1.02243,1.02243,0,0,0-1.04779.99264c0,.49633.40809.40809.66177.26471a1.33806,1.33806,0,0,1-1.46125,1.31116c-1.301,0-1.88733-1.73318-1.36747-2.61315C1.6561,15.25965.66371,13.2292,0,12.81306c.66371-.41613,1.6561-2.44658,3.072-1.40021-.51986-.88.06643-2.61315,1.36747-2.61315a1.33806,1.33806,0,0,1,1.46125,1.31116c-.25368-.14339-.66177-.23162-.66177.2647a1.02243,1.02243,0,0,0,1.04779.99265h5.08145V6.28676A1.02243,1.02243,0,0,0,10.37556,5.239c-.49632,0-.40809.40809-.2647.66177A1.33806,1.33806,0,0,1,8.7997,4.43949c0-1.301,1.73317-1.88733,2.61315-1.36747C10.36648,1.6561,12.39693.66371,12.81306,0c.41614.66371,2.44659,1.6561,1.40022,3.072.88-.51986,2.61315.06643,2.61315,1.36747a1.33806,1.33806,0,0,1-1.31116,1.46125c.14338-.25368.23162-.66177-.26471-.66177a1.02243,1.02243,0,0,0-.99264,1.04779Z"/></svg>
+        <p>Tocá la pantalla para elegir una foto y empezar</p>
+        <div class="hint">EL RITUAL COMIENZA CON UNA IMAGEN</div>
       </div>
+      <div id="tap-catcher"></div>
       <div class="picker-crosshair" id="crosshair"></div>
       <div id="pick-banner">TOCÁ LA FOTO PARA ELEGIR EL COLOR ▸</div>
     </div>
   </div>
 
-  <div id="tabs">
-    <div class="tab active" data-panel="presets">PRESETS</div>
-    <div class="tab" data-panel="basic">BÁSICO</div>
-    <div class="tab" data-panel="color">TONO</div>
-    <div class="tab" data-panel="grain">GRANO / LOOK</div>
-    <div class="tab" data-panel="colorpop">COLOR POP</div>
-  </div>
-
-  <div id="panel-area">
-
-    <div class="panel active" id="panel-presets">
-      <div class="preset-grid" id="preset-grid"></div>
+  <div id="sheet">
+    <div id="sheet-handle-area">
+      <div id="sheet-handle"></div>
     </div>
 
-    <div class="panel" id="panel-basic">
-      <div class="slider-row">
-        <div class="slider-label"><span>BRILLO</span><span class="val" id="v-brightness">0</span></div>
-        <input type="range" id="s-brightness" min="-100" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>CONTRASTE</span><span class="val" id="v-contrast">0</span></div>
-        <input type="range" id="s-contrast" min="-100" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>SATURACIÓN</span><span class="val" id="v-saturation">0</span></div>
-        <input type="range" id="s-saturation" min="-100" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>MATIZ (HUE)</span><span class="val" id="v-hue">0°</span></div>
-        <input type="range" id="s-hue" min="-180" max="180" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>NITIDEZ</span><span class="val" id="v-sharpen">0</span></div>
-        <input type="range" id="s-sharpen" min="0" max="100" value="0">
-      </div>
+    <div id="tabs">
+      <div class="tab active" data-panel="presets">PRESETS</div>
+      <div class="tab" data-panel="basic">BÁSICO</div>
+      <div class="tab" data-panel="color">TONO</div>
+      <div class="tab" data-panel="grain">RUIDO / LOOK</div>
+      <div class="tab" data-panel="colorpop">COLOR POP</div>
     </div>
 
-    <div class="panel" id="panel-color">
-      <div class="slider-row">
-        <div class="slider-label"><span>TEMPERATURA</span><span class="val" id="v-temp">0</span></div>
-        <input type="range" id="s-temp" min="-100" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>TINTE (VERDE / MAGENTA)</span><span class="val" id="v-tint">0</span></div>
-        <input type="range" id="s-tint" min="-100" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>DESVANECER NEGROS (FADE)</span><span class="val" id="v-fade">0</span></div>
-        <input type="range" id="s-fade" min="0" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>VIÑETA</span><span class="val" id="v-vignette">0</span></div>
-        <input type="range" id="s-vignette" min="0" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>TONO SOMBRAS (AZUL/VERDE)</span><span class="val" id="v-shadowtone">0</span></div>
-        <input type="range" id="s-shadowtone" min="0" max="100" value="0">
-      </div>
-    </div>
+    <div id="panel-area">
 
-    <div class="panel" id="panel-grain">
-      <div class="slider-row">
-        <div class="slider-label"><span>RUIDO / GRANO</span><span class="val" id="v-grain">0</span></div>
-        <input type="range" id="s-grain" min="0" max="100" value="0">
+      <div class="panel active" id="panel-presets">
+        <div class="preset-grid" id="preset-grid"></div>
       </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>RASTROS RGB (CHROMA SHIFT)</span><span class="val" id="v-chroma">0</span></div>
-        <input type="range" id="s-chroma" min="0" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>LÍNEAS DE ESCANEO (VHS)</span><span class="val" id="v-scanlines">0</span></div>
-        <input type="range" id="s-scanlines" min="0" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>BLOOM / BRILLO SUAVE</span><span class="val" id="v-bloom">0</span></div>
-        <input type="range" id="s-bloom" min="0" max="100" value="0">
-      </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>GRANO EN SOMBRAS SOLAMENTE</span><span class="val" id="v-shadowgrain">0</span></div>
-        <input type="range" id="s-shadowgrain" min="0" max="100" value="0">
-      </div>
-    </div>
 
-    <div class="panel" id="panel-colorpop">
-      <div class="toggle-row">
-        <div>
-          <div class="t-label">Activar color pop</div>
-          <div class="t-sub">Blanco y negro + un color resaltado</div>
+      <div class="panel" id="panel-basic">
+        <div class="slider-row">
+          <div class="slider-label"><span>BRILLO</span><span class="val" id="v-brightness">0</span></div>
+          <input type="range" id="s-brightness" min="-100" max="100" value="0">
         </div>
-        <div class="switch" id="sw-colorpop"></div>
-      </div>
-
-      <div class="colorpop-row" style="margin-top:14px;">
-        <div class="cp-swatch empty" id="cp-swatch"></div>
-        <div class="cp-actions">
-          <div class="btn-line primary" id="btn-pick-color">TOCAR FOTO PARA ELEGIR ▸</div>
-          <input type="color" id="cp-colorwheel" value="#a83232">
+        <div class="slider-row">
+          <div class="slider-label"><span>CONTRASTE</span><span class="val" id="v-contrast">0</span></div>
+          <input type="range" id="s-contrast" min="-100" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>SATURACIÓN</span><span class="val" id="v-saturation">0</span></div>
+          <input type="range" id="s-saturation" min="-100" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>MATIZ (HUE)</span><span class="val" id="v-hue">0°</span></div>
+          <input type="range" id="s-hue" min="-180" max="180" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>NITIDEZ</span><span class="val" id="v-sharpen">0</span></div>
+          <input type="range" id="s-sharpen" min="0" max="100" value="0">
         </div>
       </div>
 
-      <div class="slider-row">
-        <div class="slider-label"><span>TOLERANCIA</span><span class="val" id="v-tolerance">40</span></div>
-        <input type="range" id="s-tolerance" min="5" max="100" value="40">
+      <div class="panel" id="panel-color">
+        <div class="slider-row">
+          <div class="slider-label"><span>TEMPERATURA</span><span class="val" id="v-temp">0</span></div>
+          <input type="range" id="s-temp" min="-100" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>TINTE (VERDE / MAGENTA)</span><span class="val" id="v-tint">0</span></div>
+          <input type="range" id="s-tint" min="-100" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>DESVANECER NEGROS (FADE)</span><span class="val" id="v-fade">0</span></div>
+          <input type="range" id="s-fade" min="0" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>VIÑETA</span><span class="val" id="v-vignette">0</span></div>
+          <input type="range" id="s-vignette" min="0" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>TONO SOMBRAS (AZUL/VERDE)</span><span class="val" id="v-shadowtone">0</span></div>
+          <input type="range" id="s-shadowtone" min="0" max="100" value="0">
+        </div>
       </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>SUAVIZADO DE BORDE</span><span class="val" id="v-feather">20</span></div>
-        <input type="range" id="s-feather" min="0" max="60" value="20">
+
+      <div class="panel" id="panel-grain">
+        <div class="slider-row">
+          <div class="slider-label"><span>RUIDO / GRANO</span><span class="val" id="v-grain">0</span></div>
+          <input type="range" id="s-grain" min="0" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>RASTROS RGB (CHROMA SHIFT)</span><span class="val" id="v-chroma">0</span></div>
+          <input type="range" id="s-chroma" min="0" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>LÍNEAS DE ESCANEO (VHS)</span><span class="val" id="v-scanlines">0</span></div>
+          <input type="range" id="s-scanlines" min="0" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>BLOOM / BRILLO SUAVE</span><span class="val" id="v-bloom">0</span></div>
+          <input type="range" id="s-bloom" min="0" max="100" value="0">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>GRANO EN SOMBRAS SOLAMENTE</span><span class="val" id="v-shadowgrain">0</span></div>
+          <input type="range" id="s-shadowgrain" min="0" max="100" value="0">
+        </div>
       </div>
-      <div class="slider-row">
-        <div class="slider-label"><span>INTENSIDAD DEL COLOR</span><span class="val" id="v-popboost">20</span></div>
-        <input type="range" id="s-popboost" min="0" max="100" value="20">
+
+      <div class="panel" id="panel-colorpop">
+        <div class="toggle-row">
+          <div>
+            <div class="t-label">Activar color pop</div>
+            <div class="t-sub">Blanco y negro + un color resaltado</div>
+          </div>
+          <div class="switch" id="sw-colorpop"></div>
+        </div>
+
+        <div class="colorpop-row" style="margin-top:14px;">
+          <div class="cp-swatch empty" id="cp-swatch"></div>
+          <div class="cp-actions">
+            <div class="btn-line primary" id="btn-pick-color">TOCAR FOTO PARA ELEGIR ▸</div>
+            <div class="btn-line" id="btn-open-wheel">USAR RUEDA DE COLOR</div>
+          </div>
+        </div>
+
+        <div id="colorwheel-wrap" style="display:none;">
+          <div id="cw-relative">
+            <canvas id="colorwheel-canvas" width="160" height="160"></canvas>
+            <div id="cw-cursor"></div>
+          </div>
+          <input type="range" id="cw-brightness" min="0" max="100" value="70">
+        </div>
+
+        <div class="slider-row" style="margin-top:16px;">
+          <div class="slider-label"><span>TOLERANCIA</span><span class="val" id="v-tolerance">40</span></div>
+          <input type="range" id="s-tolerance" min="5" max="100" value="40">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>SUAVIZADO DE BORDE</span><span class="val" id="v-feather">20</span></div>
+          <input type="range" id="s-feather" min="0" max="60" value="20">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>INTENSIDAD DEL COLOR</span><span class="val" id="v-popboost">20</span></div>
+          <input type="range" id="s-popboost" min="0" max="100" value="20">
+        </div>
       </div>
+
     </div>
 
-  </div>
-
-  <div id="bottombar">
-    <div class="action-btn" id="btn-load">＋ CARGAR FOTO</div>
-    <div class="action-btn" id="btn-save-preset">☆ GUARDAR</div>
-    <div class="action-btn primary" id="btn-export" disabled>⬇ EXPORTAR</div>
+    <div id="bottombar">
+      <div class="action-btn" id="btn-load">＋ CARGAR FOTO</div>
+      <div class="action-btn" id="btn-save-preset">☆ GUARDAR</div>
+      <div class="action-btn primary is-disabled" id="btn-export">⬇ EXPORTAR</div>
+    </div>
   </div>
 
 </div>

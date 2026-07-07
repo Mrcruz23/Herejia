@@ -2,7 +2,7 @@
 // una vez instalada. No requiere red para nada: todo el procesamiento
 // de imágenes pasa en el propio dispositivo (canvas 2D).
 
-const CACHE_NAME = 'herejia-v1';
+const CACHE_NAME = 'herejia-v2';
 const ASSETS = [
   './index.html',
   './app.js',
