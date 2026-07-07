@@ -164,15 +164,15 @@
   /* ---------- BOTTOM SHEET (arrastrable) ---------- */
   #sheet{
     position:absolute;
-    left:0; right:0; bottom:0;
+    left:0; right:0;
+    bottom:var(--bottombar-height, 64px);
     z-index:15;
     background:linear-gradient(180deg, var(--leather) 0%, var(--bg-raised) 40px, var(--bg-raised) 100%);
     border-top:1px solid var(--line);
     border-radius:16px 16px 0 0;
     box-shadow:0 -8px 30px rgba(0,0,0,0.55);
     display:flex; flex-direction:column;
-    height:100%;
-    padding-bottom:var(--bottombar-height, 64px);
+    height:calc(100% - var(--bottombar-height, 64px));
     transform:translateY(0);
     will-change:transform;
   }
@@ -241,6 +241,15 @@
     color:var(--ink-dim);
   }
   .slider-label .val{color:var(--accent-hi); font-variant-numeric:tabular-nums;}
+  .slider-label .label-right{display:flex; align-items:center; gap:8px;}
+  .slider-reset{
+    color:var(--ink-faint);
+    font-size:13px;
+    padding:2px 4px;
+    cursor:pointer;
+    line-height:1;
+  }
+  .slider-reset:active{color:var(--accent-hi);}
   input[type=range]{
     -webkit-appearance:none; appearance:none;
     width:100%; height:28px;
@@ -347,29 +356,13 @@
   .switch.on::after{transform:translateX(18px); background:var(--accent-hi);}
 
   /* ---- rueda de color custom (reemplaza <input type=color>) ---- */
-  #colorwheel-wrap{
-    display:flex; flex-direction:column; align-items:center; gap:12px;
-    padding:6px 0 4px;
+  input[type=color]{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:38px; border:none; border-radius:9px;
+    background:none; cursor:pointer; padding:0;
   }
-  #colorwheel-canvas{
-    border-radius:50%;
-    cursor:crosshair;
-    touch-action:none;
-    box-shadow:0 0 0 1px var(--line), 0 4px 14px rgba(0,0,0,0.4);
-  }
-  #cw-cursor{
-    position:absolute;
-    width:16px; height:16px;
-    border-radius:50%;
-    border:2px solid #fff;
-    box-shadow:0 0 0 1px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.4);
-    pointer-events:none;
-    transform:translate(-50%,-50%);
-  }
-  #cw-relative{position:relative;}
-  #cw-brightness{
-    width:180px;
-  }
+  input[type=color]::-webkit-color-swatch-wrapper{padding:0; border-radius:9px;}
+  input[type=color]::-webkit-color-swatch{border:1px solid var(--line); border-radius:9px;}
 
   /* ---------- BOTTOM BAR ---------- */
   #bottombar{
@@ -453,6 +446,7 @@
       <svg class="cruz-svg" viewBox="0 0 25.62612 32.00489" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M14.25792,11.36821h5.08144a1.02243,1.02243,0,0,0,1.04779-.99265c0-.49632-.40808-.40809-.66176-.2647A1.338,1.338,0,0,1,21.18663,8.7997c1.301,0,1.88733,1.73317,1.36748,2.61315,1.41592-1.04637,2.4083.98408,3.072,1.40021-.66371.41614-1.65609,2.44659-3.072,1.40022.51985.88-.06644,2.61315-1.36748,2.61315a1.33805,1.33805,0,0,1-1.46124-1.31116c.25368.14338.66176.23162.66176-.26471a1.02243,1.02243,0,0,0-1.04779-.99264H14.25792v11.4602a1.02243,1.02243,0,0,0,.99264,1.0478c.49633,0,.40809-.40809.26471-.66177a1.33806,1.33806,0,0,1,1.31116,1.46125c0,1.301-1.73318,1.88732-2.61315,1.36747,1.04637,1.41592-.98408,2.40831-1.40022,3.072-.41613-.66371-2.44658-1.6561-1.40021-3.072-.88.51985-2.61315-.06643-2.61315-1.36747a1.33806,1.33806,0,0,1,1.31116-1.46125c-.14339.25368-.23162.66177.2647.66177a1.02244,1.02244,0,0,0,.99265-1.0478V14.25792H6.28676a1.02243,1.02243,0,0,0-1.04779.99264c0,.49633.40809.40809.66177.26471a1.33806,1.33806,0,0,1-1.46125,1.31116c-1.301,0-1.88733-1.73318-1.36747-2.61315C1.6561,15.25965.66371,13.2292,0,12.81306c.66371-.41613,1.6561-2.44658,3.072-1.40021-.51986-.88.06643-2.61315,1.36747-2.61315a1.33806,1.33806,0,0,1,1.46125,1.31116c-.25368-.14339-.66177-.23162-.66177.2647a1.02243,1.02243,0,0,0,1.04779.99265h5.08145V6.28676A1.02243,1.02243,0,0,0,10.37556,5.239c-.49632,0-.40809.40809-.2647.66177A1.33806,1.33806,0,0,1,8.7997,4.43949c0-1.301,1.73317-1.88733,2.61315-1.36747C10.36648,1.6561,12.39693.66371,12.81306,0c.41614.66371,2.44659,1.6561,1.40022,3.072.88-.51986,2.61315.06643,2.61315,1.36747a1.33806,1.33806,0,0,1-1.31116,1.46125c.14338-.25368.23162-.66177-.26471-.66177a1.02243,1.02243,0,0,0-.99264,1.04779Z"/></svg>
     </div>
     <div class="hdr-actions">
+      <div class="icon-btn" id="btn-finetune" title="FineTune: ajuste de precisión">◈</div>
       <div class="icon-btn" id="btn-compare" title="Comparar (mantener)">◐</div>
       <div class="icon-btn" id="btn-reset" title="Resetear todo">↺</div>
     </div>
@@ -494,35 +488,35 @@
       <div class="panel" id="panel-basic">
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>BRILLO</span><span class="val" id="v-brightness">0</span></div>
+            <div class="slider-label"><span>BRILLO</span><span class="label-right"><span class="val" id="v-brightness">0</span><span class="slider-reset" data-key="brightness" title="Resetear">↺</span></span></div>
             <input type="range" id="s-brightness" min="-100" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>CONTRASTE</span><span class="val" id="v-contrast">0</span></div>
+            <div class="slider-label"><span>CONTRASTE</span><span class="label-right"><span class="val" id="v-contrast">0</span><span class="slider-reset" data-key="contrast" title="Resetear">↺</span></span></div>
             <input type="range" id="s-contrast" min="-100" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>SATURACIÓN</span><span class="val" id="v-saturation">0</span></div>
+            <div class="slider-label"><span>SATURACIÓN</span><span class="label-right"><span class="val" id="v-saturation">0</span><span class="slider-reset" data-key="saturation" title="Resetear">↺</span></span></div>
             <input type="range" id="s-saturation" min="-100" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>MATIZ (HUE)</span><span class="val" id="v-hue">0°</span></div>
+            <div class="slider-label"><span>MATIZ (HUE)</span><span class="label-right"><span class="val" id="v-hue">0°</span><span class="slider-reset" data-key="hue" title="Resetear">↺</span></span></div>
             <input type="range" id="s-hue" min="-180" max="180" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>NITIDEZ</span><span class="val" id="v-sharpen">0</span></div>
+            <div class="slider-label"><span>NITIDEZ</span><span class="label-right"><span class="val" id="v-sharpen">0</span><span class="slider-reset" data-key="sharpen" title="Resetear">↺</span></span></div>
             <input type="range" id="s-sharpen" min="0" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
@@ -532,35 +526,35 @@
       <div class="panel" id="panel-color">
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>TEMPERATURA</span><span class="val" id="v-temp">0</span></div>
+            <div class="slider-label"><span>TEMPERATURA</span><span class="label-right"><span class="val" id="v-temp">0</span><span class="slider-reset" data-key="temp" title="Resetear">↺</span></span></div>
             <input type="range" id="s-temp" min="-100" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>TINTE (VERDE / MAGENTA)</span><span class="val" id="v-tint">0</span></div>
+            <div class="slider-label"><span>TINTE (VERDE / MAGENTA)</span><span class="label-right"><span class="val" id="v-tint">0</span><span class="slider-reset" data-key="tint" title="Resetear">↺</span></span></div>
             <input type="range" id="s-tint" min="-100" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>DESVANECER NEGROS (FADE)</span><span class="val" id="v-fade">0</span></div>
+            <div class="slider-label"><span>DESVANECER NEGROS (FADE)</span><span class="label-right"><span class="val" id="v-fade">0</span><span class="slider-reset" data-key="fade" title="Resetear">↺</span></span></div>
             <input type="range" id="s-fade" min="0" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>VIÑETA</span><span class="val" id="v-vignette">0</span></div>
+            <div class="slider-label"><span>VIÑETA</span><span class="label-right"><span class="val" id="v-vignette">0</span><span class="slider-reset" data-key="vignette" title="Resetear">↺</span></span></div>
             <input type="range" id="s-vignette" min="0" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>TONO SOMBRAS (AZUL/VERDE)</span><span class="val" id="v-shadowtone">0</span></div>
+            <div class="slider-label"><span>TONO SOMBRAS (AZUL/VERDE)</span><span class="label-right"><span class="val" id="v-shadowtone">0</span><span class="slider-reset" data-key="shadowtone" title="Resetear">↺</span></span></div>
             <input type="range" id="s-shadowtone" min="0" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
@@ -570,35 +564,35 @@
       <div class="panel" id="panel-grain">
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>RUIDO / GRANO</span><span class="val" id="v-grain">0</span></div>
+            <div class="slider-label"><span>RUIDO / GRANO</span><span class="label-right"><span class="val" id="v-grain">0</span><span class="slider-reset" data-key="grain" title="Resetear">↺</span></span></div>
             <input type="range" id="s-grain" min="0" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>RASTROS RGB (CHROMA SHIFT)</span><span class="val" id="v-chroma">0</span></div>
+            <div class="slider-label"><span>RASTROS RGB (CHROMA SHIFT)</span><span class="label-right"><span class="val" id="v-chroma">0</span><span class="slider-reset" data-key="chroma" title="Resetear">↺</span></span></div>
             <input type="range" id="s-chroma" min="0" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>LÍNEAS DE ESCANEO (VHS)</span><span class="val" id="v-scanlines">0</span></div>
+            <div class="slider-label"><span>LÍNEAS DE ESCANEO (VHS)</span><span class="label-right"><span class="val" id="v-scanlines">0</span><span class="slider-reset" data-key="scanlines" title="Resetear">↺</span></span></div>
             <input type="range" id="s-scanlines" min="0" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>BLOOM / BRILLO SUAVE</span><span class="val" id="v-bloom">0</span></div>
+            <div class="slider-label"><span>BLOOM / BRILLO SUAVE</span><span class="label-right"><span class="val" id="v-bloom">0</span><span class="slider-reset" data-key="bloom" title="Resetear">↺</span></span></div>
             <input type="range" id="s-bloom" min="0" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>GRANO EN SOMBRAS SOLAMENTE</span><span class="val" id="v-shadowgrain">0</span></div>
+            <div class="slider-label"><span>GRANO EN SOMBRAS SOLAMENTE</span><span class="label-right"><span class="val" id="v-shadowgrain">0</span><span class="slider-reset" data-key="shadowgrain" title="Resetear">↺</span></span></div>
             <input type="range" id="s-shadowgrain" min="0" max="100" value="0">
           </div>
           <div class="scroll-margin"></div>
@@ -618,35 +612,27 @@
           <div class="cp-swatch empty" id="cp-swatch"></div>
           <div class="cp-actions">
             <div class="btn-line primary" id="btn-pick-color">TOCAR FOTO PARA ELEGIR ▸</div>
-            <div class="btn-line" id="btn-open-wheel">USAR RUEDA DE COLOR</div>
+            <input type="color" id="cp-colorwheel" value="#a83232">
           </div>
-        </div>
-
-        <div id="colorwheel-wrap" style="display:none;">
-          <div id="cw-relative">
-            <canvas id="colorwheel-canvas" width="160" height="160"></canvas>
-            <div id="cw-cursor"></div>
-          </div>
-          <input type="range" id="cw-brightness" min="0" max="100" value="70">
         </div>
 
         <div class="slider-row" style="margin-top:16px;">
           <div class="slider-main">
-            <div class="slider-label"><span>TOLERANCIA</span><span class="val" id="v-tolerance">40</span></div>
+            <div class="slider-label"><span>TOLERANCIA</span><span class="label-right"><span class="val" id="v-tolerance">40</span><span class="slider-reset" data-key="tolerance" title="Resetear">↺</span></span></div>
             <input type="range" id="s-tolerance" min="5" max="100" value="40">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>SUAVIZADO DE BORDE</span><span class="val" id="v-feather">20</span></div>
+            <div class="slider-label"><span>SUAVIZADO DE BORDE</span><span class="label-right"><span class="val" id="v-feather">20</span><span class="slider-reset" data-key="feather" title="Resetear">↺</span></span></div>
             <input type="range" id="s-feather" min="0" max="60" value="20">
           </div>
           <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
           <div class="slider-main">
-            <div class="slider-label"><span>INTENSIDAD DEL COLOR</span><span class="val" id="v-popboost">20</span></div>
+            <div class="slider-label"><span>INTENSIDAD DEL COLOR</span><span class="label-right"><span class="val" id="v-popboost">20</span><span class="slider-reset" data-key="popboost" title="Resetear">↺</span></span></div>
             <input type="range" id="s-popboost" min="0" max="100" value="20">
           </div>
           <div class="scroll-margin"></div>

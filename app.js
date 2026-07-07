@@ -359,18 +359,60 @@ const sliderDefs = [
   ['s-popboost','v-popboost','popBoost', v=>v],
 ];
 
+// ---- FineTune: cuando está activo, arrastrar un slider mueve el valor a una
+// fracción de la velocidad normal (como el modo fino de G-Stomper), para poder
+// elegir el número exacto sin pasarse. Se logra interceptando el gesto con
+// Pointer Events en vez de dejar que el <input type=range> nativo salte
+// directo a la posición X del dedo. ----
+let fineTuneActive = false;
+const FINE_TUNE_FACTOR = 0.22; // fracción de velocidad normal en modo fino
+
 sliderDefs.forEach(([inputId, labelId, key, fmt]) => {
   const input = document.getElementById(inputId);
   const label = document.getElementById(labelId);
-  input.addEventListener('input', () => {
-    const v = parseInt(input.value, 10);
+
+  function commitValue(v){
+    v = Math.round(clamp(v, parseFloat(input.min), parseFloat(input.max)));
+    input.value = v;
     state[key] = v;
     label.textContent = fmt(v);
     activePresetId = null;
     markCustom();
-    if (!sourceCanvas) return;
-    scheduleRender();
+    if (sourceCanvas) scheduleRender();
+  }
+
+  input.addEventListener('input', () => {
+    // en modo normal, el input nativo ya trae el valor correcto
+    if (fineTuneActive) return; // en fino, el valor lo maneja el pointerdown/move de abajo
+    commitValue(parseInt(input.value, 10));
   });
+
+  let fineDragStartX = 0;
+  let fineDragStartVal = 0;
+  input.addEventListener('pointerdown', (e) => {
+    if (!fineTuneActive) return;
+    // evitamos que el input nativo salte a la posición del dedo; nosotros
+    // manejamos el valor a mano con el delta de movimiento
+    e.preventDefault();
+    input.setPointerCapture(e.pointerId);
+    fineDragStartX = e.clientX;
+    fineDragStartVal = parseFloat(input.value);
+  });
+  input.addEventListener('pointermove', (e) => {
+    if (!fineTuneActive || e.buttons === 0) return;
+    const min = parseFloat(input.min), max = parseFloat(input.max);
+    const range = max - min;
+    const deltaPx = e.clientX - fineDragStartX;
+    const rect = input.getBoundingClientRect();
+    const deltaVal = (deltaPx / rect.width) * range * FINE_TUNE_FACTOR;
+    commitValue(fineDragStartVal + deltaVal);
+  });
+});
+
+document.getElementById('btn-finetune').addEventListener('click', () => {
+  fineTuneActive = !fineTuneActive;
+  document.getElementById('btn-finetune').classList.toggle('on', fineTuneActive);
+  showToast(fineTuneActive ? 'Ajuste fino activado' : 'Ajuste fino desactivado');
 });
 
 function syncSlidersFromState(){
@@ -381,6 +423,29 @@ function syncSlidersFromState(){
     label.textContent = fmt(state[key]);
   });
 }
+
+// ---- reset individual por control: toca el botón ↺ junto a cada slider
+// para devolver SOLO ese ajuste a su valor por defecto, sin afectar los demás ----
+function resetSingleSlider(key){
+  const def = sliderDefs.find(d => d[2] === key);
+  if (!def) return;
+  const [inputId, labelId, , fmt] = def;
+  const defaultVal = DEFAULT_STATE[key];
+  state[key] = defaultVal;
+  document.getElementById(inputId).value = defaultVal;
+  document.getElementById(labelId).textContent = fmt(defaultVal);
+  activePresetId = null;
+  markCustom();
+  if (sourceCanvas) scheduleRender();
+}
+
+document.querySelectorAll('.slider-reset').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    resetSingleSlider(btn.dataset.key);
+    showToast('Restaurado');
+  });
+});
 
 function markCustom(){
   document.querySelectorAll('.preset-card').forEach(el => el.classList.remove('active'));
@@ -714,119 +779,16 @@ canvas.addEventListener('pointerup', (e) => {
 // al cargar una foto nueva, el zoom se resetea
 function resetZoomOnNewImage(){ resetZoom(false); }
 
-document.getElementById('btn-open-wheel').addEventListener('click', () => {
-  const wrap = document.getElementById('colorwheel-wrap');
-  const showing = wrap.style.display !== 'none';
-  wrap.style.display = showing ? 'none' : 'flex';
-  if (!showing) drawColorWheel(parseFloat(document.getElementById('cw-brightness').value)/100);
-});
-
-// ---- Rueda de color HSV custom (reemplaza <input type=color>, que en
-// algunos navegadores de escritorio dispara el color-picker nativo del SO
-// y puede colgar la pestaña). Todo dibujado y calculado a mano en canvas. ----
-const cwCanvas = document.getElementById('colorwheel-canvas');
-const cwCtx = cwCanvas.getContext('2d');
-const cwCursor = document.getElementById('cw-cursor');
-const cwBrightnessSlider = document.getElementById('cw-brightness');
-const CW_SIZE = 160;
-const CW_RADIUS = CW_SIZE/2;
-let cwImageData = null;
-
-function hsvToRgb(h, s, v){
-  // h: 0-360, s,v: 0-1
-  const c = v * s;
-  const x = c * (1 - Math.abs(((h/60) % 2) - 1));
-  const m = v - c;
-  let r,g,b;
-  if (h < 60){ r=c; g=x; b=0; }
-  else if (h < 120){ r=x; g=c; b=0; }
-  else if (h < 180){ r=0; g=c; b=x; }
-  else if (h < 240){ r=0; g=x; b=c; }
-  else if (h < 300){ r=x; g=0; b=c; }
-  else { r=c; g=0; b=x; }
-  return { r: Math.round((r+m)*255), g: Math.round((g+m)*255), b: Math.round((b+m)*255) };
-}
-
-function drawColorWheel(brightness){
-  const imgData = cwCtx.createImageData(CW_SIZE, CW_SIZE);
-  const data = imgData.data;
-  for (let y = 0; y < CW_SIZE; y++){
-    for (let x = 0; x < CW_SIZE; x++){
-      const dx = x - CW_RADIUS, dy = y - CW_RADIUS;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      const idx = (y*CW_SIZE + x) * 4;
-      if (dist > CW_RADIUS){
-        data[idx+3] = 0; // fuera del círculo: transparente
-        continue;
-      }
-      let angle = Math.atan2(dy, dx) * 180 / Math.PI;
-      if (angle < 0) angle += 360;
-      const sat = clamp(dist / CW_RADIUS, 0, 1);
-      const { r, g, b } = hsvToRgb(angle, sat, brightness);
-      data[idx] = r; data[idx+1] = g; data[idx+2] = b; data[idx+3] = 255;
-    }
-  }
-  cwCtx.putImageData(imgData, 0, 0);
-  cwImageData = imgData;
-}
-
-function pickFromWheel(clientX, clientY){
-  const rect = cwCanvas.getBoundingClientRect();
-  const scaleX = CW_SIZE / rect.width;
-  const scaleY = CW_SIZE / rect.height;
-  let x = (clientX - rect.left) * scaleX;
-  let y = (clientY - rect.top) * scaleY;
-
-  const dx = x - CW_RADIUS, dy = y - CW_RADIUS;
-  const dist = Math.sqrt(dx*dx + dy*dy);
-  if (dist > CW_RADIUS){
-    // clampear al borde del círculo si tocan/arrastran afuera
-    const ratio = CW_RADIUS / dist;
-    x = CW_RADIUS + dx*ratio;
-    y = CW_RADIUS + dy*ratio;
-  }
-
-  const px = Math.min(CW_SIZE-1, Math.max(0, Math.round(x)));
-  const py = Math.min(CW_SIZE-1, Math.max(0, Math.round(y)));
-  const idx = (py*CW_SIZE + px) * 4;
-  if (!cwImageData) return;
-  const r = cwImageData.data[idx], g = cwImageData.data[idx+1], b = cwImageData.data[idx+2];
-
-  setPopColor(r, g, b);
-  cwCursor.style.left = x + 'px';
-  cwCursor.style.top = y + 'px';
-  cwCursor.style.background = `rgb(${r},${g},${b})`;
-
+document.getElementById('cp-colorwheel').addEventListener('input', (e) => {
+  const hex = e.target.value;
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  setPopColor(r,g,b);
   crosshair.style.display = 'none';
   state.colorpop = true;
   swColorpop.classList.add('on');
   if (sourceCanvas) scheduleRender();
-}
-
-let cwDragging = false;
-cwCanvas.addEventListener('pointerdown', (e) => {
-  cwDragging = true;
-  cwCanvas.setPointerCapture(e.pointerId);
-  pickFromWheel(e.clientX, e.clientY);
-});
-cwCanvas.addEventListener('pointermove', (e) => {
-  if (!cwDragging) return;
-  pickFromWheel(e.clientX, e.clientY);
-});
-cwCanvas.addEventListener('pointerup', () => { cwDragging = false; });
-cwCanvas.addEventListener('pointercancel', () => { cwDragging = false; });
-
-cwBrightnessSlider.addEventListener('input', (e) => {
-  const v = parseFloat(e.target.value) / 100;
-  drawColorWheel(v);
-  // si ya había un cursor posicionado, re-muestrear el color en esa posición
-  // con el nuevo brillo para que el swatch quede coherente
-  const left = parseFloat(cwCursor.style.left);
-  const top = parseFloat(cwCursor.style.top);
-  if (!isNaN(left) && !isNaN(top)){
-    const rect = cwCanvas.getBoundingClientRect();
-    pickFromWheel(rect.left + left * (rect.width/CW_SIZE), rect.top + top * (rect.height/CW_SIZE));
-  }
 });
 
 function setPopColor(r,g,b){
@@ -834,11 +796,15 @@ function setPopColor(r,g,b){
   const sw = document.getElementById('cp-swatch');
   sw.classList.remove('empty');
   sw.style.background = `rgb(${r},${g},${b})`;
+  document.getElementById('cp-colorwheel').value = rgbToHex(r,g,b);
 }
 function clearPopColorUI(){
   const sw = document.getElementById('cp-swatch');
   sw.classList.add('empty');
   sw.style.background = 'none';
+}
+function rgbToHex(r,g,b){
+  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
 }
 
 // ============================================================
