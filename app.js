@@ -1078,16 +1078,9 @@ canvas.addEventListener('pointerup', (e) => {
 // al cargar una foto nueva, el zoom se resetea
 function resetZoomOnNewImage(){ resetZoom(false); }
 
-document.getElementById('cp-colorwheel').addEventListener('input', (e) => {
-  const hex = e.target.value;
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  setPopColor(r,g,b);
-  crosshair.style.display = 'none';
-  state.colorpop = true;
-  swColorpop.classList.add('on');
-  if (sourceCanvas) scheduleRender();
+document.getElementById('btn-pick-color-manual').addEventListener('click', () => {
+  const start = state.popColor || { r: 168, g: 50, b: 50 };
+  openColorModal('colorpop', start);
 });
 
 function setPopColor(r,g,b){
@@ -1095,7 +1088,6 @@ function setPopColor(r,g,b){
   const sw = document.getElementById('cp-swatch');
   sw.classList.remove('empty');
   sw.style.background = `rgb(${r},${g},${b})`;
-  document.getElementById('cp-colorwheel').value = rgbToHex(r,g,b);
 }
 function clearPopColorUI(){
   const sw = document.getElementById('cp-swatch');
@@ -1123,17 +1115,9 @@ swTint.addEventListener('click', () => {
   if (sourceCanvas) scheduleRender();
 });
 
-document.getElementById('tint-colorwheel').addEventListener('input', (e) => {
-  const hex = e.target.value;
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  setTintColor(r,g,b);
-  state.tintOn = true;
-  swTint.classList.add('on');
-  activePresetId = null;
-  markCustom();
-  if (sourceCanvas) scheduleRender();
+document.getElementById('btn-pick-tint-color').addEventListener('click', () => {
+  const start = state.tintColor || { r: 169, g: 129, b: 47 };
+  openColorModal('tint', start);
 });
 
 tintBlendSelect.addEventListener('change', (e) => {
@@ -1151,7 +1135,6 @@ function setTintSwatchUI(r,g,b){
   const sw = document.getElementById('tint-swatch');
   sw.classList.remove('empty');
   sw.style.background = `rgb(${r},${g},${b})`;
-  document.getElementById('tint-colorwheel').value = rgbToHex(r,g,b);
 }
 function clearTintSwatchUI(){
   const sw = document.getElementById('tint-swatch');
@@ -1333,6 +1316,212 @@ window.addEventListener('resize', () => setSheetTranslate(currentTranslate, fals
 // posición inicial: semi-abierto
 setSheetPos('semi', false);
 
+
+// ============================================================
+// SELECTOR DE COLOR PROPIO — reemplaza el picker nativo de Android,
+// que en algunos navegadores (Brave incluido) dibuja los sliders de
+// Tono/Saturación/Valor en negro y no permite ajustar finamente el
+// color ya elegido. Este modal usa un plano SV + slider de Tono +
+// campo hex, todo con gradientes propios que sí se pintan siempre.
+// ============================================================
+const colorModalScrim = document.getElementById('color-modal-scrim');
+const cmSv = document.getElementById('cm-sv');
+const cmSvCursor = document.getElementById('cm-sv-cursor');
+const cmHue = document.getElementById('cm-hue');
+const cmHueThumb = document.getElementById('cm-hue-thumb');
+const cmHex = document.getElementById('cm-hex');
+const cmPreview = document.getElementById('cm-preview');
+const cmSwatches = document.getElementById('cm-swatches');
+
+// Paleta de sugerencias acorde a la estética de Herejía: dorado viejo,
+// rojos sangre/óxido, verdes musgo, azules noche, huesos y sepias —
+// nada de rojo/verde/azul/magenta puro tipo panel por defecto de Android.
+const THEME_SWATCHES = [
+  '#a9812f', // dorado grimorio (color de arranque del filtro)
+  '#8a3b32', // rojo sangre / acento de la app
+  '#5c1f1a', // óxido oscuro
+  '#3f4a2e', // musgo
+  '#2c3b2f', // verde bosque nocturno
+  '#26323f', // azul noche
+  '#3a2a1a', // cuero
+  '#6b5a44', // hueso viejo
+  '#cbb08a', // pergamino
+  '#1a1512', // negro carbón
+  '#7a5c2e', // bronce
+  '#4a2620', // vino oscuro
+];
+
+let cmTarget = null; // 'colorpop' | 'tint'
+let cmH = 0, cmS = 0, cmV = 0; // 0-1
+
+function hsvToRgb(h,s,v){
+  const i = Math.floor(h*6);
+  const f = h*6 - i;
+  const p = v*(1-s);
+  const q = v*(1-f*s);
+  const t = v*(1-(1-f)*s);
+  let r,g,b;
+  switch(i%6){
+    case 0: r=v; g=t; b=p; break;
+    case 1: r=q; g=v; b=p; break;
+    case 2: r=p; g=v; b=t; break;
+    case 3: r=p; g=q; b=v; break;
+    case 4: r=t; g=p; b=v; break;
+    case 5: r=v; g=p; b=q; break;
+  }
+  return { r: Math.round(r*255), g: Math.round(g*255), b: Math.round(b*255) };
+}
+function rgbToHsv(r,g,b){
+  r/=255; g/=255; b/=255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0){
+    if (max === r) h = ((g-b)/d) % 6;
+    else if (max === g) h = (b-r)/d + 2;
+    else h = (r-g)/d + 4;
+    h /= 6;
+    if (h < 0) h += 1;
+  }
+  const s = max === 0 ? 0 : d/max;
+  return { h, s, v: max };
+}
+
+function buildSwatches(){
+  cmSwatches.innerHTML = '';
+  THEME_SWATCHES.forEach(hex => {
+    const btn = document.createElement('div');
+    btn.className = 'cm-swatch-btn';
+    btn.style.background = hex;
+    btn.dataset.hex = hex;
+    btn.addEventListener('click', () => {
+      const r = parseInt(hex.slice(1,3),16);
+      const g = parseInt(hex.slice(3,5),16);
+      const b = parseInt(hex.slice(5,7),16);
+      const hsv = rgbToHsv(r,g,b);
+      cmH = hsv.h; cmS = hsv.s; cmV = hsv.v;
+      updateColorModalUI();
+    });
+    cmSwatches.appendChild(btn);
+  });
+}
+buildSwatches();
+
+function currentCmRgb(){
+  return hsvToRgb(cmH, cmS, cmV);
+}
+
+function updateColorModalUI(){
+  const {r,g,b} = currentCmRgb();
+  const hex = rgbToHex(r,g,b);
+
+  // plano SV: el fondo base cambia según el tono elegido
+  const hueRgb = hsvToRgb(cmH, 1, 1);
+  cmSv.style.background = `rgb(${hueRgb.r},${hueRgb.g},${hueRgb.b})`;
+  cmSvCursor.style.left = (cmS*100) + '%';
+  cmSvCursor.style.top = ((1-cmV)*100) + '%';
+  cmSvCursor.style.background = hex;
+
+  cmHueThumb.style.left = (cmH*100) + '%';
+
+  cmPreview.style.background = hex;
+  cmHex.value = hex;
+
+  // marcar swatch seleccionado si coincide
+  [...cmSwatches.children].forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.hex.toLowerCase() === hex.toLowerCase());
+  });
+}
+
+function openColorModal(target, startRgb){
+  cmTarget = target;
+  const hsv = rgbToHsv(startRgb.r, startRgb.g, startRgb.b);
+  cmH = hsv.h; cmS = hsv.s; cmV = hsv.v || 1;
+  updateColorModalUI();
+  colorModalScrim.classList.add('show');
+}
+function closeColorModal(){
+  colorModalScrim.classList.remove('show');
+  cmTarget = null;
+}
+
+// --- interacción: plano SV (arrastre) ---
+function handleSvPointer(e){
+  const rect = cmSv.getBoundingClientRect();
+  const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+  const y = clamp((e.clientY - rect.top) / rect.height, 0, 1);
+  cmS = x;
+  cmV = 1 - y;
+  updateColorModalUI();
+}
+let cmSvDragging = false;
+cmSv.addEventListener('pointerdown', (e) => {
+  cmSvDragging = true;
+  cmSv.setPointerCapture(e.pointerId);
+  handleSvPointer(e);
+});
+cmSv.addEventListener('pointermove', (e) => { if (cmSvDragging) handleSvPointer(e); });
+cmSv.addEventListener('pointerup', () => { cmSvDragging = false; });
+cmSv.addEventListener('pointercancel', () => { cmSvDragging = false; });
+
+// --- interacción: slider de tono (arrastre) ---
+function handleHuePointer(e){
+  const rect = cmHue.getBoundingClientRect();
+  const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+  cmH = x;
+  updateColorModalUI();
+}
+let cmHueDragging = false;
+cmHue.addEventListener('pointerdown', (e) => {
+  cmHueDragging = true;
+  cmHue.setPointerCapture(e.pointerId);
+  handleHuePointer(e);
+});
+cmHue.addEventListener('pointermove', (e) => { if (cmHueDragging) handleHuePointer(e); });
+cmHue.addEventListener('pointerup', () => { cmHueDragging = false; });
+cmHue.addEventListener('pointercancel', () => { cmHueDragging = false; });
+
+// --- campo hex manual ---
+cmHex.addEventListener('change', () => {
+  let hex = cmHex.value.trim();
+  if (!hex.startsWith('#')) hex = '#' + hex;
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)){
+    updateColorModalUI(); // revertir si es inválido
+    return;
+  }
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  const hsv = rgbToHsv(r,g,b);
+  cmH = hsv.h; cmS = hsv.s; cmV = hsv.v;
+  updateColorModalUI();
+});
+
+document.getElementById('cm-cancel').addEventListener('click', closeColorModal);
+colorModalScrim.addEventListener('click', (e) => {
+  if (e.target === colorModalScrim) closeColorModal();
+});
+
+document.getElementById('cm-confirm').addEventListener('click', () => {
+  const {r,g,b} = currentCmRgb();
+  if (cmTarget === 'colorpop'){
+    setPopColor(r,g,b);
+    crosshair.style.display = 'none';
+    state.colorpop = true;
+    swColorpop.classList.add('on');
+    activePresetId = null;
+    markCustom();
+    if (sourceCanvas) scheduleRender();
+  } else if (cmTarget === 'tint'){
+    setTintColor(r,g,b);
+    state.tintOn = true;
+    swTint.classList.add('on');
+    activePresetId = null;
+    markCustom();
+    if (sourceCanvas) scheduleRender();
+  }
+  closeColorModal();
+});
 
 // ============================================================
 // PWA — registro de service worker
