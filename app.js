@@ -129,6 +129,7 @@ function loadImage(img){
   clearPopColorUI();
   scheduleRender();
   if (typeof setSheetPos === 'function') setSheetPos('semi', true);
+  if (typeof resetZoomOnNewImage === 'function') resetZoomOnNewImage();
 }
 
 // ============================================================
@@ -399,7 +400,10 @@ document.querySelectorAll('.tab').forEach(tab => {
     } else {
       hidePicker();
     }
-    if (sheetPos === 'collapsed') setSheetPos('semi', true);
+    // si el sheet está casi totalmente colapsado, lo subimos un poco para
+    // que se alcancen a ver los sliders del panel recién elegido
+    const { max } = getBounds();
+    if (currentTranslate > max - 40) setSheetPos('semi', true);
   });
 });
 
@@ -463,9 +467,48 @@ document.getElementById('modal-cancel').addEventListener('click', () => {
 
 document.getElementById('modal-confirm').addEventListener('click', () => {
   const name = document.getElementById('preset-name-input').value.trim() || 'MI PRESET';
+  const finalName = name.toUpperCase().slice(0,18);
+
+  const existing = customPresets.find(p => p.name === finalName);
+  if (existing){
+    // ya existe un preset custom con ese nombre: pedimos confirmación antes
+    // de pisarlo, en vez de crear un duplicado silencioso o sobrescribir sin avisar
+    pendingOverwriteName = finalName;
+    document.getElementById('modal-scrim').classList.remove('show');
+    document.getElementById('modal-overwrite-scrim').classList.add('show');
+    return;
+  }
+
+  saveNewPreset(finalName);
+});
+
+let pendingOverwriteName = null;
+
+document.getElementById('modal-overwrite-cancel').addEventListener('click', () => {
+  document.getElementById('modal-overwrite-scrim').classList.remove('show');
+  pendingOverwriteName = null;
+});
+
+document.getElementById('modal-overwrite-confirm').addEventListener('click', () => {
+  if (!pendingOverwriteName) return;
+  const idx = customPresets.findIndex(p => p.name === pendingOverwriteName);
+  if (idx !== -1){
+    const swatchColor = approximatePresetColor();
+    customPresets[idx] = { ...customPresets[idx], swatch: swatchColor, v: extractCurrentAdjustments() };
+    localStorage.setItem('grano_custom_presets', JSON.stringify(customPresets));
+    activePresetId = customPresets[idx].id;
+    renderPresetGrid();
+    showToast('Preset sobrescrito');
+    document.querySelector('.tab[data-panel="presets"]').click();
+  }
+  document.getElementById('modal-overwrite-scrim').classList.remove('show');
+  pendingOverwriteName = null;
+});
+
+function saveNewPreset(finalName){
   const id = 'custom_' + Date.now();
   const swatchColor = approximatePresetColor();
-  const newPreset = { id, name: name.toUpperCase().slice(0,18), swatch: swatchColor, v: extractCurrentAdjustments() };
+  const newPreset = { id, name: finalName, swatch: swatchColor, v: extractCurrentAdjustments() };
   customPresets.push(newPreset);
   localStorage.setItem('grano_custom_presets', JSON.stringify(customPresets));
   activePresetId = id;
@@ -473,7 +516,7 @@ document.getElementById('modal-confirm').addEventListener('click', () => {
   document.getElementById('modal-scrim').classList.remove('show');
   showToast('Preset guardado');
   document.querySelector('.tab[data-panel="presets"]').click();
-});
+}
 
 function extractCurrentAdjustments(){
   const { colorpop, popColor, tolerance, feather, popBoost, ...rest } = state;
@@ -509,8 +552,9 @@ function showPicker(){
   pickBanner.style.display = 'block';
   canvas.style.cursor = 'crosshair';
   pickingActive = true;
-  // dejamos ver la foto completa mientras se elige el color
-  if (sheetPos !== 'collapsed') setSheetPos('collapsed', true);
+  // dejamos ver la foto completa mientras se elige el color, sin zoom aplicado
+  if (typeof resetZoom === 'function') resetZoom(true);
+  setSheetPos('collapsed', true);
 }
 function hidePicker(){
   pickBanner.style.display = 'none';
@@ -549,6 +593,126 @@ canvas.addEventListener('click', (e) => {
   showToast('Color elegido ✓');
   setSheetPos('semi', true);
 });
+
+// ============================================================
+// ZOOM (pellizco) Y PAN sobre la foto
+// ============================================================
+// Aplicamos transform CSS al canvas ya renderizado (no volvemos a correr el
+// pipeline de filtros en cada frame), así el gesto es fluido incluso en un
+// celular modesto. El pipeline de filtros sigue trabajando siempre sobre la
+// resolución completa de trabajo; el zoom es puramente visual.
+const zoomState = { scale: 1, x: 0, y: 0 };
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 5;
+const activePointers = new Map(); // pointerId -> {x, y}
+let pinchStartDist = 0;
+let pinchStartScale = 1;
+let pinchStartMid = { x: 0, y: 0 };
+let pinchStartOffset = { x: 0, y: 0 };
+let panStart = null; // {x, y} del único dedo, para pan de un dedo cuando ya hay zoom aplicado
+
+function applyCanvasTransform(){
+  canvas.style.transform = `translate(${zoomState.x}px, ${zoomState.y}px) scale(${zoomState.scale})`;
+}
+
+function clampPan(){
+  // evita que se pueda arrastrar la foto tan lejos que quede toda fuera de vista;
+  // el margen permitido crece con el nivel de zoom actual
+  const rect = canvas.getBoundingClientRect();
+  const maxOffsetX = (rect.width * (zoomState.scale - 1)) / 2 + rect.width * 0.15;
+  const maxOffsetY = (rect.height * (zoomState.scale - 1)) / 2 + rect.height * 0.15;
+  zoomState.x = clamp(zoomState.x, -maxOffsetX, maxOffsetX);
+  zoomState.y = clamp(zoomState.y, -maxOffsetY, maxOffsetY);
+}
+
+function resetZoom(animate = true){
+  zoomState.scale = 1; zoomState.x = 0; zoomState.y = 0;
+  canvas.style.transition = animate ? 'transform 0.25s ease' : 'none';
+  applyCanvasTransform();
+  setTimeout(() => { canvas.style.transition = 'none'; }, animate ? 260 : 0);
+}
+
+function dist(p1, p2){
+  return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+}
+function midpoint(p1, p2){
+  return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (!sourceCanvas || pickingActive) return;
+  canvas.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (activePointers.size === 2){
+    const pts = Array.from(activePointers.values());
+    pinchStartDist = dist(pts[0], pts[1]);
+    pinchStartScale = zoomState.scale;
+    pinchStartMid = midpoint(pts[0], pts[1]);
+    pinchStartOffset = { x: zoomState.x, y: zoomState.y };
+    panStart = null;
+  } else if (activePointers.size === 1 && zoomState.scale > 1){
+    // con un solo dedo y ya habiendo zoom aplicado, permitimos arrastrar (pan)
+    panStart = { x: e.clientX, y: e.clientY, offsetX: zoomState.x, offsetY: zoomState.y };
+  }
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!activePointers.has(e.pointerId)) return;
+  activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (activePointers.size === 2){
+    const pts = Array.from(activePointers.values());
+    const newDist = dist(pts[0], pts[1]);
+    const newMid = midpoint(pts[0], pts[1]);
+    const ratio = newDist / (pinchStartDist || 1);
+    zoomState.scale = clamp(pinchStartScale * ratio, MIN_ZOOM, MAX_ZOOM);
+    // desplazamos según el movimiento del punto medio entre los dos dedos,
+    // para que el pellizco sienta natural (zoom centrado donde están los dedos)
+    zoomState.x = pinchStartOffset.x + (newMid.x - pinchStartMid.x);
+    zoomState.y = pinchStartOffset.y + (newMid.y - pinchStartMid.y);
+    clampPan();
+    applyCanvasTransform();
+  } else if (activePointers.size === 1 && panStart){
+    zoomState.x = panStart.offsetX + (e.clientX - panStart.x);
+    zoomState.y = panStart.offsetY + (e.clientY - panStart.y);
+    clampPan();
+    applyCanvasTransform();
+  }
+});
+
+function releasePointer(e){
+  activePointers.delete(e.pointerId);
+  if (activePointers.size < 2) pinchStartDist = 0;
+  if (activePointers.size === 0) panStart = null;
+  // si queda un solo dedo tras soltar uno de los dos del pellizco, reiniciamos
+  // referencia de pan para que no salte
+  if (activePointers.size === 1 && zoomState.scale > 1){
+    const remaining = Array.from(activePointers.values())[0];
+    panStart = { x: remaining.x, y: remaining.y, offsetX: zoomState.x, offsetY: zoomState.y };
+  }
+  // si el zoom quedó prácticamente en 1, lo dejamos exacto para evitar
+  // un desenfoque sutil por escalado no entero
+  if (zoomState.scale < 1.03 && activePointers.size === 0){
+    resetZoom(true);
+  }
+}
+canvas.addEventListener('pointerup', releasePointer);
+canvas.addEventListener('pointercancel', releasePointer);
+
+// doble tap para resetear el zoom rápidamente
+let lastTapTime = 0;
+canvas.addEventListener('pointerup', (e) => {
+  if (pickingActive || activePointers.size > 0) return;
+  const now = Date.now();
+  if (now - lastTapTime < 300 && zoomState.scale > 1){
+    resetZoom(true);
+  }
+  lastTapTime = now;
+});
+
+// al cargar una foto nueva, el zoom se resetea
+function resetZoomOnNewImage(){ resetZoom(false); }
 
 document.getElementById('btn-open-wheel').addEventListener('click', () => {
   const wrap = document.getElementById('colorwheel-wrap');
@@ -736,70 +900,79 @@ function showToast(msg){
 }
 
 // ============================================================
-// BOTTOM SHEET ARRASTRABLE
+// BOTTOM SHEET ARRASTRABLE — posición libre y continua
 // ============================================================
-// Tres posiciones expresadas como % de la altura del sheet que queda
-// visible desde abajo: colapsado (solo el handle asoma), semi (se ven
-// tabs + un poco de controles) y expandido (todo el panel).
+// El usuario puede dejar el panel en cualquier altura intermedia arrastrando
+// el handle; no hay 3 posiciones fijas. Límites: nunca puede subir por
+// encima del header, y siempre queda un mínimo visible abajo para poder
+// volver a agarrarlo. El bottombar (cargar/guardar/exportar) vive AFUERA
+// del sheet, fijo, para estar siempre accesible sin importar dónde quede el panel.
 const sheetEl = document.getElementById('sheet');
 const handleArea = document.getElementById('sheet-handle-area');
+const headerEl = document.querySelector('header');
+const bottombarEl = document.getElementById('bottombar');
+
+// medimos la altura real del bottombar (varía según safe-area-inset-bottom
+// del dispositivo) y la exponemos como variable CSS para que el sheet
+// reserve exactamente ese espacio y su scroll interno no quede tapado
+function updateBottombarHeightVar(){
+  const h = bottombarEl.getBoundingClientRect().height;
+  if (h > 0) document.documentElement.style.setProperty('--bottombar-height', h + 'px');
+}
+updateBottombarHeightVar();
+window.addEventListener('resize', updateBottombarHeightVar);
 
 let sheetHeight = 0;
-let sheetPos = 'semi'; // 'collapsed' | 'semi' | 'expanded'
 let dragStartY = 0;
 let dragStartTranslate = 0;
 let dragging = false;
-let currentTranslate = 0;
+let currentTranslate = 0; // píxeles de traslación actual (0 = sheet totalmente arriba)
 
-function getSnapPixels(){
+const MIN_VISIBLE = 96; // px que SIEMPRE deben quedar visibles abajo (handle + tabs), para poder volver a agarrar el sheet
+
+function getBounds(){
   sheetHeight = sheetEl.getBoundingClientRect().height;
-  const collapsedVisible = 46; // px visibles cuando está colapsado (handle + tabs asomando)
-  const semiVisible = Math.min(sheetHeight * 0.42, 340); // altura visible en semi
-  return {
-    collapsed: sheetHeight - collapsedVisible,
-    semi: sheetHeight - semiVisible,
-    expanded: 0
-  };
+  const headerBottom = headerEl.getBoundingClientRect().bottom;
+  // el sheet nunca puede subir tanto que su borde superior quede por encima
+  // del borde inferior del header (así el header siempre queda visible y
+  // el usuario nunca pierde la referencia de arriba)
+  const minTranslate = headerBottom;
+  const maxTranslate = sheetHeight - MIN_VISIBLE;
+  return { min: minTranslate, max: maxTranslate };
 }
 
-function setSheetPos(pos, animate = true){
-  sheetPos = pos;
-  const snaps = getSnapPixels();
-  currentTranslate = snaps[pos];
+function setSheetTranslate(px, animate = false){
+  const { min, max } = getBounds();
+  currentTranslate = Math.max(min, Math.min(max, px));
   sheetEl.classList.toggle('animated', animate);
   sheetEl.style.transform = `translateY(${currentTranslate}px)`;
 }
 
-function closestSnap(translateY){
-  const snaps = getSnapPixels();
-  const entries = Object.entries(snaps);
-  let best = entries[0];
-  for (const entry of entries){
-    if (Math.abs(entry[1] - translateY) < Math.abs(best[1] - translateY)) best = entry;
-  }
-  return best[0];
+// posiciones con nombre, usadas solo para gestos puntuales (auto-expandir al
+// tocar un tab, colapsar al elegir color) — el usuario igual puede dejarlo en
+// cualquier punto intermedio arrastrando libremente
+function setSheetPos(pos, animate = true){
+  const { min, max } = getBounds();
+  let target;
+  if (pos === 'expanded') target = min;
+  else if (pos === 'collapsed') target = max;
+  else target = min + (max - min) * 0.58; // semi: un poco más cerca de colapsado que de expandido
+  setSheetTranslate(target, animate);
 }
 
 function sheetDragStart(clientY){
   dragging = true;
   dragStartY = clientY;
-  const snaps = getSnapPixels();
-  dragStartTranslate = snaps[sheetPos];
+  dragStartTranslate = currentTranslate;
   sheetEl.classList.remove('animated');
 }
 function sheetDragMove(clientY){
   if (!dragging) return;
-  const snaps = getSnapPixels();
-  let next = dragStartTranslate + (clientY - dragStartY);
-  next = Math.max(snaps.expanded, Math.min(snaps.collapsed, next));
-  currentTranslate = next;
-  sheetEl.style.transform = `translateY(${next}px)`;
+  setSheetTranslate(dragStartTranslate + (clientY - dragStartY), false);
 }
 function sheetDragEnd(){
-  if (!dragging) return;
   dragging = false;
-  const snap = closestSnap(currentTranslate);
-  setSheetPos(snap, true);
+  // se queda exactamente donde el usuario lo soltó: posición libre, sin snap
 }
 
 handleArea.addEventListener('pointerdown', (e) => {
@@ -810,7 +983,7 @@ handleArea.addEventListener('pointermove', (e) => sheetDragMove(e.clientY));
 handleArea.addEventListener('pointerup', sheetDragEnd);
 handleArea.addEventListener('pointercancel', sheetDragEnd);
 
-window.addEventListener('resize', () => setSheetPos(sheetPos, false));
+window.addEventListener('resize', () => setSheetTranslate(currentTranslate, false));
 
 // posición inicial: semi-abierto
 setSheetPos('semi', false);

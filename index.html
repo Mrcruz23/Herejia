@@ -69,8 +69,8 @@
   }
   .brand .logo-svg{
     height:22px; width:auto;
-    color:#1a1210;
-    filter:drop-shadow(0 1px 0 rgba(255,255,255,0.05));
+    color:var(--parchment);
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,0.5));
   }
   .brand .cruz-svg{
     height:26px; width:auto;
@@ -106,7 +106,11 @@
     width:100%; height:100%;
     display:flex; align-items:center; justify-content:center;
   }
-  canvas{display:block; max-width:100%; max-height:100%; touch-action:none;}
+  canvas{
+    display:block; max-width:100%; max-height:100%; touch-action:none;
+    transform-origin:center center;
+    will-change:transform;
+  }
 
   #tap-catcher{
     position:absolute; inset:0;
@@ -168,6 +172,7 @@
     box-shadow:0 -8px 30px rgba(0,0,0,0.55);
     display:flex; flex-direction:column;
     height:100%;
+    padding-bottom:var(--bottombar-height, 64px);
     transform:translateY(0);
     will-change:transform;
   }
@@ -222,8 +227,13 @@
   .panel.active{display:block;}
 
   /* sliders */
-  .slider-row{margin-bottom:17px;}
+  .slider-row{margin-bottom:17px; display:flex; align-items:center; gap:10px;}
   .slider-row:last-child{margin-bottom:2px;}
+  .slider-row .slider-main{flex:1; min-width:0;}
+  .slider-row .scroll-margin{
+    width:34px; flex-shrink:0;
+    height:28px;
+  }
   .slider-label{
     display:flex; justify-content:space-between; align-items:baseline;
     margin-bottom:7px;
@@ -363,11 +373,14 @@
 
   /* ---------- BOTTOM BAR ---------- */
   #bottombar{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    z-index:25;
     display:flex; gap:8px;
     padding:10px 16px calc(10px + env(safe-area-inset-bottom));
-    flex-shrink:0;
-    border-top:1px solid var(--line-soft);
+    border-top:1px solid var(--line);
     background:var(--bg-raised);
+    box-shadow:0 -4px 16px rgba(0,0,0,0.4);
   }
   .action-btn{
     flex:1;
@@ -480,70 +493,115 @@
 
       <div class="panel" id="panel-basic">
         <div class="slider-row">
-          <div class="slider-label"><span>BRILLO</span><span class="val" id="v-brightness">0</span></div>
-          <input type="range" id="s-brightness" min="-100" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>BRILLO</span><span class="val" id="v-brightness">0</span></div>
+            <input type="range" id="s-brightness" min="-100" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>CONTRASTE</span><span class="val" id="v-contrast">0</span></div>
-          <input type="range" id="s-contrast" min="-100" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>CONTRASTE</span><span class="val" id="v-contrast">0</span></div>
+            <input type="range" id="s-contrast" min="-100" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>SATURACIÓN</span><span class="val" id="v-saturation">0</span></div>
-          <input type="range" id="s-saturation" min="-100" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>SATURACIÓN</span><span class="val" id="v-saturation">0</span></div>
+            <input type="range" id="s-saturation" min="-100" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>MATIZ (HUE)</span><span class="val" id="v-hue">0°</span></div>
-          <input type="range" id="s-hue" min="-180" max="180" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>MATIZ (HUE)</span><span class="val" id="v-hue">0°</span></div>
+            <input type="range" id="s-hue" min="-180" max="180" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>NITIDEZ</span><span class="val" id="v-sharpen">0</span></div>
-          <input type="range" id="s-sharpen" min="0" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>NITIDEZ</span><span class="val" id="v-sharpen">0</span></div>
+            <input type="range" id="s-sharpen" min="0" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
       </div>
 
       <div class="panel" id="panel-color">
         <div class="slider-row">
-          <div class="slider-label"><span>TEMPERATURA</span><span class="val" id="v-temp">0</span></div>
-          <input type="range" id="s-temp" min="-100" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>TEMPERATURA</span><span class="val" id="v-temp">0</span></div>
+            <input type="range" id="s-temp" min="-100" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>TINTE (VERDE / MAGENTA)</span><span class="val" id="v-tint">0</span></div>
-          <input type="range" id="s-tint" min="-100" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>TINTE (VERDE / MAGENTA)</span><span class="val" id="v-tint">0</span></div>
+            <input type="range" id="s-tint" min="-100" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>DESVANECER NEGROS (FADE)</span><span class="val" id="v-fade">0</span></div>
-          <input type="range" id="s-fade" min="0" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>DESVANECER NEGROS (FADE)</span><span class="val" id="v-fade">0</span></div>
+            <input type="range" id="s-fade" min="0" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>VIÑETA</span><span class="val" id="v-vignette">0</span></div>
-          <input type="range" id="s-vignette" min="0" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>VIÑETA</span><span class="val" id="v-vignette">0</span></div>
+            <input type="range" id="s-vignette" min="0" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>TONO SOMBRAS (AZUL/VERDE)</span><span class="val" id="v-shadowtone">0</span></div>
-          <input type="range" id="s-shadowtone" min="0" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>TONO SOMBRAS (AZUL/VERDE)</span><span class="val" id="v-shadowtone">0</span></div>
+            <input type="range" id="s-shadowtone" min="0" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
       </div>
 
       <div class="panel" id="panel-grain">
         <div class="slider-row">
-          <div class="slider-label"><span>RUIDO / GRANO</span><span class="val" id="v-grain">0</span></div>
-          <input type="range" id="s-grain" min="0" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>RUIDO / GRANO</span><span class="val" id="v-grain">0</span></div>
+            <input type="range" id="s-grain" min="0" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>RASTROS RGB (CHROMA SHIFT)</span><span class="val" id="v-chroma">0</span></div>
-          <input type="range" id="s-chroma" min="0" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>RASTROS RGB (CHROMA SHIFT)</span><span class="val" id="v-chroma">0</span></div>
+            <input type="range" id="s-chroma" min="0" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>LÍNEAS DE ESCANEO (VHS)</span><span class="val" id="v-scanlines">0</span></div>
-          <input type="range" id="s-scanlines" min="0" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>LÍNEAS DE ESCANEO (VHS)</span><span class="val" id="v-scanlines">0</span></div>
+            <input type="range" id="s-scanlines" min="0" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>BLOOM / BRILLO SUAVE</span><span class="val" id="v-bloom">0</span></div>
-          <input type="range" id="s-bloom" min="0" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>BLOOM / BRILLO SUAVE</span><span class="val" id="v-bloom">0</span></div>
+            <input type="range" id="s-bloom" min="0" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>GRANO EN SOMBRAS SOLAMENTE</span><span class="val" id="v-shadowgrain">0</span></div>
-          <input type="range" id="s-shadowgrain" min="0" max="100" value="0">
+          <div class="slider-main">
+            <div class="slider-label"><span>GRANO EN SOMBRAS SOLAMENTE</span><span class="val" id="v-shadowgrain">0</span></div>
+            <input type="range" id="s-shadowgrain" min="0" max="100" value="0">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
       </div>
 
@@ -573,26 +631,35 @@
         </div>
 
         <div class="slider-row" style="margin-top:16px;">
-          <div class="slider-label"><span>TOLERANCIA</span><span class="val" id="v-tolerance">40</span></div>
-          <input type="range" id="s-tolerance" min="5" max="100" value="40">
+          <div class="slider-main">
+            <div class="slider-label"><span>TOLERANCIA</span><span class="val" id="v-tolerance">40</span></div>
+            <input type="range" id="s-tolerance" min="5" max="100" value="40">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>SUAVIZADO DE BORDE</span><span class="val" id="v-feather">20</span></div>
-          <input type="range" id="s-feather" min="0" max="60" value="20">
+          <div class="slider-main">
+            <div class="slider-label"><span>SUAVIZADO DE BORDE</span><span class="val" id="v-feather">20</span></div>
+            <input type="range" id="s-feather" min="0" max="60" value="20">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
         <div class="slider-row">
-          <div class="slider-label"><span>INTENSIDAD DEL COLOR</span><span class="val" id="v-popboost">20</span></div>
-          <input type="range" id="s-popboost" min="0" max="100" value="20">
+          <div class="slider-main">
+            <div class="slider-label"><span>INTENSIDAD DEL COLOR</span><span class="val" id="v-popboost">20</span></div>
+            <input type="range" id="s-popboost" min="0" max="100" value="20">
+          </div>
+          <div class="scroll-margin"></div>
         </div>
       </div>
 
     </div>
+  </div>
 
-    <div id="bottombar">
-      <div class="action-btn" id="btn-load">＋ CARGAR FOTO</div>
-      <div class="action-btn" id="btn-save-preset">☆ GUARDAR</div>
-      <div class="action-btn primary is-disabled" id="btn-export">⬇ EXPORTAR</div>
-    </div>
+  <div id="bottombar">
+    <div class="action-btn" id="btn-load">＋ CARGAR FOTO</div>
+    <div class="action-btn" id="btn-save-preset">☆ GUARDAR</div>
+    <div class="action-btn primary is-disabled" id="btn-export">⬇ EXPORTAR</div>
   </div>
 
 </div>
@@ -608,6 +675,17 @@
     <div class="modal-btns">
       <div class="btn-line" id="modal-cancel" style="flex:1;">CANCELAR</div>
       <div class="btn-line primary" id="modal-confirm" style="flex:1;">GUARDAR</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-scrim" id="modal-overwrite-scrim">
+  <div class="modal-sheet">
+    <h3>Ya existe un preset con ese nombre</h3>
+    <p style="margin:-6px 0 16px; color:var(--ink-dim); font-size:13px; line-height:1.5;">¿Querés sobrescribirlo con los ajustes actuales?</p>
+    <div class="modal-btns">
+      <div class="btn-line" id="modal-overwrite-cancel" style="flex:1;">CANCELAR</div>
+      <div class="btn-line primary" id="modal-overwrite-confirm" style="flex:1;">SOBRESCRIBIR</div>
     </div>
   </div>
 </div>
