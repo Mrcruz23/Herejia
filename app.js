@@ -15,9 +15,34 @@ let sourceCanvas   = null;   // canvas offscreen con la imagen original a resolu
 let workW = 0, workH = 0;
 let renderScheduled = false;
 let lastRenderedBitmap = null; // para el botón "comparar"
-let noiseTileCache = {};       // cache de patrones de ruido por seed/size
+let noiseTileCache = {};       // cache de texturas de ruido ya generadas, por tamaño (w x h)
 
 const MAX_DIM = 1600; // resolución de trabajo (liviano en celus modestos)
+
+// ---- vista previa liviana mientras se arrastra un slider ----
+// Recalcular el pipeline de filtros pixel-por-pixel a resolución completa en
+// CADA evento 'input' (que dispara decenas de veces por segundo mientras se
+// arrastra) es lo que hacía sentir lentos los knobs, sobre todo con ruido o
+// color pop activos. Mientras se está arrastrando, renderizamos sobre una
+// copia mucho más chica de la foto y la escalamos al tamaño real (el canvas
+// visible nunca cambia de resolución, así que no hay saltos de layout). Al
+// soltar el slider, se dispara un render final a resolución completa.
+const DRAG_PREVIEW_MAX = 640;
+let dragPreviewCanvas = null;
+let previewResultCanvas = null;
+let isAdjusting = false;
+
+function buildDragPreview(){
+  if (!sourceCanvas) return;
+  const scale = Math.min(1, DRAG_PREVIEW_MAX / Math.max(workW, workH));
+  const pw = Math.max(1, Math.round(workW * scale));
+  const ph = Math.max(1, Math.round(workH * scale));
+  dragPreviewCanvas = document.createElement('canvas');
+  dragPreviewCanvas.width = pw;
+  dragPreviewCanvas.height = ph;
+  dragPreviewCanvas.getContext('2d').drawImage(sourceCanvas, 0, 0, pw, ph);
+  previewResultCanvas = document.createElement('canvas');
+}
 
 // ---------------- ESTADO DE FILTROS ----------------
 const DEFAULT_STATE = {
@@ -75,10 +100,15 @@ const BUILTIN_PRESETS = [
         grain:22, chroma:0, scanlines:0, bloom:10, shadowgrain:8 }
   },
   {
+    // Empujado más fuerte de saturación/contraste para acercarse al look
+    // "punchy" tipo cámara compacta de los 90 sobreexpuesta en color. Es un
+    // punto de partida: la saturación de este motor pega distinto que la de
+    // otras apps, así que probablemente NO haga falta llevarla al máximo —
+    // se puede afinar en vivo desde el panel BÁSICO y volver a guardar.
     id:'noventas', name:"NOSTALGIA 90'S", swatch:'#8a6a3f',
-    v:{ brightness:4, contrast:14, saturation:14, hue:-4, sharpen:0,
-        temp:14, tint:-8, fade:14, vignette:16, shadowtone:22,
-        grain:38, chroma:16, scanlines:20, bloom:16, shadowgrain:16 }
+    v:{ brightness:6, contrast:22, saturation:46, hue:-4, sharpen:0,
+        temp:16, tint:-10, fade:6, vignette:14, shadowtone:14,
+        grain:30, chroma:20, scanlines:20, bloom:20, shadowgrain:10 }
   },
   {
     id:'tecnicolor', name:'TECNICOLOR', swatch:'#a83232',
@@ -172,6 +202,14 @@ function loadImage(img){
   state = { ...DEFAULT_STATE };
   syncSlidersFromState();
   clearPopColorUI();
+  // El estado de color pop se resetea arriba (colorpop:false), pero el
+  // interruptor visual no se apagaba solo: quedaba "prendido" en pantalla
+  // aunque el filtro ya no estuviera activo, lo que además confundía si
+  // después se aplicaba un preset (parecía que el preset "no hacía nada").
+  swColorpop.classList.remove('on');
+  crosshair.style.display = 'none';
+  noiseTileCache = {}; // la foto cambió: cualquier textura de ruido cacheada quedó obsoleta
+  buildDragPreview();
   scheduleRender();
   if (typeof setSheetPos === 'function') setSheetPos('semi', true);
   if (typeof resetZoomOnNewImage === 'function') resetZoomOnNewImage();
@@ -191,7 +229,17 @@ function scheduleRender(){
 
 function render(){
   if (!sourceCanvas) return;
-  renderFilteredToCanvas(canvas, sourceCanvas, state);
+  if (isAdjusting && dragPreviewCanvas){
+    // Filtramos la copia chica (rápido) y la estiramos sobre el canvas visible,
+    // que mantiene siempre su resolución real (workW x workH): no hay salto
+    // de nitidez ni de layout, solo se ve un poco menos definido mientras
+    // se arrastra el knob, y vuelve a full-res apenas se suelta.
+    renderFilteredToCanvas(previewResultCanvas, dragPreviewCanvas, state);
+    ctx.clearRect(0, 0, workW, workH);
+    ctx.drawImage(previewResultCanvas, 0, 0, workW, workH);
+  } else {
+    renderFilteredToCanvas(canvas, sourceCanvas, state);
+  }
 }
 
 // ---- pipeline genérico, reutilizado tanto para el render principal como
@@ -242,6 +290,26 @@ function renderFilteredToCanvas(destCanvas, srcCanvas, st){
 
 function clamp(v, lo, hi){ return v < lo ? lo : (v > hi ? hi : v); }
 
+// h en grados (0-360), s y l en 0..1. Implementación estándar sin trigonometría,
+// barata de llamar por pixel.
+function rgbToHsl(r, g, b){
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s;
+  const l = (max + min) / 2;
+  if (max === min){
+    h = 0; s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  return [h, s, l];
+}
+
 function applyPixelPipeline(imgData, w, h, st){
   const data = imgData.data;
   const len = data.length;
@@ -256,11 +324,15 @@ function applyPixelPipeline(imgData, w, h, st){
 
   const popActive = st.colorpop && st.popColor;
   let pr=0, pg=0, pb=0, tolerance=0, feather=0, popBoost=0;
+  let pHue=0, pSat=0, pLight=0, pIsGray=false;
   if (popActive){
     pr = st.popColor.r; pg = st.popColor.g; pb = st.popColor.b;
     tolerance = st.tolerance;
     feather = st.feather;
     popBoost = st.popBoost / 100;
+    const phsl = rgbToHsl(pr, pg, pb);
+    pHue = phsl[0]; pSat = phsl[1]; pLight = phsl[2];
+    pIsGray = pSat < 0.12; // el color elegido es prácticamente gris/blanco/negro: no tiene matiz confiable
   }
 
   // fade lift: sube el piso de negros y baja levemente el techo de blancos (look "film")
@@ -272,6 +344,16 @@ function applyPixelPipeline(imgData, w, h, st){
   const shiftPx = Math.round((chromaAmt / 100) * 4);
 
   const srcCopy = shiftPx > 0 ? new Uint8ClampedArray(data) : null;
+
+  // Textura de ruido: antes se llamaba Math.random() por cada canal de cada
+  // pixel, en cada frame — con fotos de ~2.5 megapíxeles eso son millones de
+  // llamadas por render, y era el principal motivo de que todo se sintiera
+  // lento apenas se subía "ruido/grano". Ahora se genera UNA vez por tamaño
+  // de imagen y se reutiliza; el patrón queda fijo pero es indistinguible a
+  // simple vista en una foto (no es un video), y el resultado es idéntico en
+  // aspecto con una fracción del costo.
+  const needsNoise = grainAmt > 0 || shadowGrainAmt > 0;
+  const noiseTile = needsNoise ? getNoiseTile(w, h) : null;
 
   for (let i = 0; i < len; i += 4){
     let r = data[i], g = data[i+1], b = data[i+2];
@@ -306,11 +388,33 @@ function applyPixelPipeline(imgData, w, h, st){
 
     // --- color pop (Sin City): desaturar todo salvo el color elegido ---
     if (popActive){
-      const dist = Math.sqrt((r-pr)**2 + (g-pg)**2 + (b-pb)**2);
-      const maxDist = tolerance * 2.6 + 1;
+      // Antes esto comparaba distancia RGB "en línea recta". El problema:
+      // un rojo oscuro y un azul oscuro pueden quedar a una distancia parecida
+      // a la de dos azules distintos, solo por tener luminosidad similar —
+      // por eso se filtraba rojo aunque se hubiera elegido azul y bajado la
+      // tolerancia al mínimo. Comparando por matiz (HSL) en cambio, el rojo y
+      // el azul quedan lejísimos sin importar qué tan oscuros sean.
+      let dist;
+      if (pIsGray){
+        const chsl = rgbToHsl(r, g, b);
+        const dl = Math.abs(chsl[2] - pLight) * 100;
+        const ds = chsl[1] * 100;
+        dist = Math.sqrt(dl*dl + ds*ds);
+      } else {
+        const chsl = rgbToHsl(r, g, b);
+        let dh = Math.abs(chsl[0] - pHue);
+        if (dh > 180) dh = 360 - dh;
+        const ds = Math.abs(chsl[1] - pSat) * 100;
+        const dl = Math.abs(chsl[2] - pLight) * 100;
+        // el matiz pesa mucho más: es lo que define "es este color o no";
+        // sat/luminosidad solo afinan variantes más claras/oscuras del mismo color
+        dist = Math.sqrt((dh*1.9)**2 + (ds*0.55)**2 + (dl*0.45)**2);
+      }
+      const maxDist = 4 + (tolerance / 100) * 78;
+      const featherDist = feather * 1.1;
       let keep;
       if (dist <= maxDist) keep = 1;
-      else if (dist <= maxDist + feather * 2) keep = 1 - (dist - maxDist) / (feather * 2 || 1);
+      else if (dist <= maxDist + featherDist) keep = 1 - (dist - maxDist) / (featherDist || 1);
       else keep = 0;
       keep = clamp(keep, 0, 1);
 
@@ -327,8 +431,8 @@ function applyPixelPipeline(imgData, w, h, st){
     }
 
     // --- grano (monocromático: mismo desplazamiento en los 3 canales, como grano de película real) ---
-    if (grainAmt > 0 || shadowGrainAmt > 0){
-      const noise = (Math.random() - 0.5) * 255;
+    if (needsNoise){
+      const noise = noiseTile[i >> 2];
       let intensity = grainAmt;
       if (shadowGrainAmt > 0){
         const luma = (r*0.299 + g*0.587 + b*0.114) / 255;
@@ -359,6 +463,22 @@ function applyPixelPipeline(imgData, w, h, st){
       }
     }
   }
+}
+
+// Genera (o reutiliza) una textura de ruido del tamaño exacto de la imagen
+// que se está filtrando. Se cachea por tamaño porque se usa tanto para el
+// render principal (workW x workH) como para las miniaturas de presets
+// (160x160) y la vista previa de arrastre (más chica): cada una pide su
+// propio tamaño una sola vez y después es gratis.
+function getNoiseTile(w, h){
+  const key = w + 'x' + h;
+  let tile = noiseTileCache[key];
+  if (!tile){
+    tile = new Float32Array(w * h);
+    for (let i = 0; i < tile.length; i++) tile[i] = (Math.random() - 0.5) * 255;
+    noiseTileCache[key] = tile;
+  }
+  return tile;
 }
 
 function applyVignetteCanvas(ctxRef, w, h, amount){
@@ -462,6 +582,16 @@ sliderDefs.forEach(([inputId, labelId, key, fmt]) => {
 
   input.addEventListener('input', () => {
     commitValue(parseInt(input.value, 10));
+  });
+
+  // Mientras el dedo/mouse sigue apretando el slider, renderizamos en baja
+  // resolución (ver DRAG_PREVIEW_MAX más arriba); al soltar, un render final
+  // a resolución completa. 'change' es el evento estándar de <input type=range>
+  // que dispara justo al soltar, en todos los navegadores.
+  input.addEventListener('pointerdown', () => { isAdjusting = true; });
+  input.addEventListener('change', () => {
+    isAdjusting = false;
+    if (sourceCanvas) scheduleRender();
   });
 });
 
@@ -572,9 +702,23 @@ function renderPresetGrid(){
 
 function applyPreset(p){
   activePresetId = p.id;
-  const popState = { colorpop: state.colorpop, popColor: state.popColor, tolerance: state.tolerance, feather: state.feather, popBoost: state.popBoost };
+  // Si el preset guardó su propia config de color pop (porque estaba activo
+  // cuando se guardó), la usamos. Si no la tiene (presets de fábrica, o
+  // presets viejos guardados antes de este arreglo), mantenemos el color pop
+  // que el usuario tenga activo ahora mismo, para poder combinar un look con
+  // el color que ya eligió.
+  const hasOwnColorpop = p.v && Object.prototype.hasOwnProperty.call(p.v, 'colorpop');
+  const popState = hasOwnColorpop
+    ? { colorpop: p.v.colorpop, popColor: p.v.popColor, tolerance: p.v.tolerance, feather: p.v.feather, popBoost: p.v.popBoost }
+    : { colorpop: state.colorpop, popColor: state.popColor, tolerance: state.tolerance, feather: state.feather, popBoost: state.popBoost };
   state = { ...DEFAULT_STATE, ...p.v, ...popState };
   syncSlidersFromState();
+  // Sincronizar el interruptor y el swatch visual con lo que quedó en el
+  // estado: antes esto no pasaba y el switch podía mostrar "apagado" (o
+  // "prendido" de una sesión anterior) sin reflejar lo que el preset traía.
+  swColorpop.classList.toggle('on', !!state.colorpop);
+  if (state.popColor) setPopColor(state.popColor.r, state.popColor.g, state.popColor.b);
+  else clearPopColorUI();
   renderPresetGrid();
   if (sourceCanvas) scheduleRender();
   showToast('Preset "' + p.name + '" aplicado');
@@ -652,6 +796,13 @@ function saveNewPreset(finalName){
 
 function extractCurrentAdjustments(){
   const { colorpop, popColor, tolerance, feather, popBoost, ...rest } = state;
+  // Antes esto SIEMPRE descartaba el color pop del preset guardado, incluso
+  // si estaba activo y configurado en el momento de guardar — por eso el
+  // preset "no hacía nada" con color pop: nunca se había guardado de verdad.
+  // Ahora, si estaba activo, se guarda como parte del preset.
+  if (colorpop && popColor){
+    return { ...rest, colorpop, popColor, tolerance, feather, popBoost };
+  }
   return rest;
 }
 
@@ -981,6 +1132,15 @@ function setSheetTranslate(px, animate = false){
   sheetEl.classList.toggle('animated', animate);
   sheetEl.style.transform = `translateY(${currentTranslate}px)`;
   updatePanelAreaHeight();
+  if (animate){
+    // Con una transición CSS en curso, medir el layout justo ahora todavía
+    // devuelve la posición VIEJA (el navegador no aplicó el movimiento
+    // todavía), así que panel-area se queda con una altura vieja — eso es
+    // el "bloque marrón" que tapaba tolerancia/suavizado/intensidad hasta
+    // que se arrastraba el sheet (lo cual forzaba un nuevo cálculo). Acá
+    // forzamos ese recálculo apenas la transición realmente termina.
+    sheetEl.addEventListener('transitionend', updatePanelAreaHeight, { once: true });
+  }
 }
 
 // El sheet se mueve con transform (rápido, sin recalcular layout), pero eso
