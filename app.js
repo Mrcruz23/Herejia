@@ -67,6 +67,24 @@ const BUILTIN_PRESETS = [
     v:{ brightness:-12, contrast:26, saturation:-45, hue:0, sharpen:12,
         temp:-4, tint:2, fade:10, vignette:42, shadowtone:20,
         grain:50, chroma:10, scanlines:0, bloom:5, shadowgrain:35 }
+  },
+  {
+    id:'sepia', name:'SEPIA', swatch:'#6b4a2f',
+    v:{ brightness:2, contrast:10, saturation:-65, hue:6, sharpen:0,
+        temp:38, tint:-8, fade:20, vignette:26, shadowtone:8,
+        grain:22, chroma:0, scanlines:0, bloom:10, shadowgrain:8 }
+  },
+  {
+    id:'noventas', name:"NOSTALGIA 90'S", swatch:'#8a6a3f',
+    v:{ brightness:4, contrast:14, saturation:14, hue:-4, sharpen:0,
+        temp:14, tint:-8, fade:14, vignette:16, shadowtone:22,
+        grain:38, chroma:16, scanlines:20, bloom:16, shadowgrain:16 }
+  },
+  {
+    id:'tecnicolor', name:'TECNICOLOR', swatch:'#a83232',
+    v:{ brightness:2, contrast:24, saturation:24, hue:0, sharpen:6,
+        temp:6, tint:-2, fade:2, vignette:14, shadowtone:12,
+        grain:8, chroma:0, scanlines:0, bloom:10, shadowgrain:0 }
   }
 ];
 
@@ -198,12 +216,25 @@ function renderFilteredToCanvas(destCanvas, srcCanvas, st){
   dctx.filter = 'none';
 
   // 2. A partir de acá trabajamos por pixel para: temp/tint, fade, shadowtone,
-  //    color-pop, grain, chroma shift, scanlines, vignette, bloom.
-  let imgData = dctx.getImageData(0, 0, w, h);
-  applyPixelPipeline(imgData, w, h, st);
-  dctx.putImageData(imgData, 0, 0);
+  //    color-pop, grain, chroma shift. Si ninguno de estos ajustes está activo
+  //    (caso muy común: solo brillo/contraste/saturación/matiz, que ya se
+  //    resolvieron arriba con el filtro CSS por GPU) nos salteamos por completo
+  //    esta pasada por pixel — es la que más pesa y la que hacía sentir lentos
+  //    a los sliders básicos mientras se arrastraban.
+  const needsPixelPass = st.temp !== 0 || st.tint !== 0 || st.fade > 0 ||
+    st.shadowtone > 0 || (st.colorpop && st.popColor) ||
+    st.grain > 0 || st.chroma > 0 || st.shadowgrain > 0;
 
-  // 3. Efectos que conviene hacer con canvas compositing (más baratos así)
+  if (needsPixelPass){
+    let imgData = dctx.getImageData(0, 0, w, h);
+    applyPixelPipeline(imgData, w, h, st);
+    dctx.putImageData(imgData, 0, 0);
+  }
+
+  // 3. Nitidez (unsharp mask): más pesado, así que solo corre si está en uso
+  if (st.sharpen > 0) applySharpenCanvas(dctx, destCanvas, w, h, st.sharpen);
+
+  // 4. Efectos que conviene hacer con canvas compositing (más baratos así)
   if (st.vignette > 0) applyVignetteCanvas(dctx, w, h, st.vignette);
   if (st.scanlines > 0) applyScanlinesCanvas(dctx, w, h, st.scanlines);
   if (st.bloom > 0) applyBloomCanvas(dctx, destCanvas, w, h, st.bloom);
@@ -368,6 +399,29 @@ function applyBloomCanvas(ctxRef, canvasRef, w, h, amount){
   ctxRef.restore();
 }
 
+// Nitidez real (unsharp mask): se genera una versión desenfocada (blur por GPU,
+// barato) y se suma la diferencia respecto a la original, amplificada. Solo se
+// llama cuando sharpen > 0, así no afecta el rendimiento del resto de sliders.
+function applySharpenCanvas(ctxRef, canvasRef, w, h, amount){
+  const radius = 1 + (amount / 100) * 2.2;
+  const off = document.createElement('canvas');
+  off.width = w; off.height = h;
+  const octx = off.getContext('2d');
+  octx.filter = `blur(${radius}px)`;
+  octx.drawImage(canvasRef, 0, 0);
+
+  const sharp = ctxRef.getImageData(0, 0, w, h);
+  const blurred = octx.getImageData(0, 0, w, h);
+  const sd = sharp.data, bd = blurred.data;
+  const k = (amount / 100) * 1.8;
+  for (let i = 0; i < sd.length; i += 4){
+    sd[i]   = clamp(sd[i]   + (sd[i]   - bd[i])   * k, 0, 255);
+    sd[i+1] = clamp(sd[i+1] + (sd[i+1] - bd[i+1]) * k, 0, 255);
+    sd[i+2] = clamp(sd[i+2] + (sd[i+2] - bd[i+2]) * k, 0, 255);
+  }
+  ctxRef.putImageData(sharp, 0, 0);
+}
+
 // ============================================================
 // SLIDERS — binding genérico
 // ============================================================
@@ -439,7 +493,6 @@ document.querySelectorAll('.slider-reset').forEach(btn => {
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
     resetSingleSlider(btn.dataset.key);
-    showToast('Restaurado');
   });
 });
 

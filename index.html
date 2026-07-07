@@ -107,10 +107,16 @@
     display:flex; align-items:center; justify-content:center;
   }
   canvas{
-    display:block; max-width:100%; max-height:100%; touch-action:none;
+    display:block; max-width:100%; max-height:100%;
     transform-origin:center center;
     will-change:transform;
   }
+  /* el canvas principal maneja zoom/pan a mano (pinch), por eso necesita
+     bloquear los gestos nativos del navegador solo ahí */
+  #canvas{ touch-action:none; }
+  /* las miniaturas de presets no deben interceptar toques: así el scroll
+     de la lista y el tap para aplicar el preset los recibe la tarjeta */
+  .preset-card canvas{ pointer-events:none; }
 
   #tap-catcher{
     position:absolute; inset:0;
@@ -320,7 +326,7 @@
   .preset-card.custom .del{display:flex;}
 
   /* color-pop panel */
-  .colorpop-row{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
+  .colorpop-row{display:flex; align-items:center; gap:12px;}
   .cp-swatch{
     width:44px; height:44px; border-radius:11px;
     border:2px solid var(--line);
@@ -606,20 +612,30 @@
       </div>
 
       <div class="panel" id="panel-colorpop">
-        <div class="toggle-row">
-          <div>
-            <div class="t-label">Activar color pop</div>
-            <div class="t-sub">Blanco y negro + un color resaltado</div>
+        <div class="slider-row" style="margin-bottom:0;">
+          <div class="slider-main">
+            <div class="toggle-row" style="border-top:none; padding:0 0 11px;">
+              <div>
+                <div class="t-label">Activar color pop</div>
+                <div class="t-sub">Blanco y negro + un color resaltado</div>
+              </div>
+              <div class="switch" id="sw-colorpop"></div>
+            </div>
           </div>
-          <div class="switch" id="sw-colorpop"></div>
+          <div class="scroll-margin"></div>
         </div>
 
-        <div class="colorpop-row" style="margin-top:14px;">
-          <div class="cp-swatch empty" id="cp-swatch"></div>
-          <div class="cp-actions">
-            <div class="btn-line primary" id="btn-pick-color">TOCAR FOTO PARA ELEGIR ▸</div>
-            <input type="color" id="cp-colorwheel" value="#a83232">
+        <div class="slider-row" style="margin-top:14px;">
+          <div class="slider-main">
+            <div class="colorpop-row">
+              <div class="cp-swatch empty" id="cp-swatch"></div>
+              <div class="cp-actions">
+                <div class="btn-line primary" id="btn-pick-color">TOCAR FOTO PARA ELEGIR ▸</div>
+                <input type="color" id="cp-colorwheel" value="#a83232">
+              </div>
+            </div>
           </div>
+          <div class="scroll-margin"></div>
         </div>
 
         <div class="slider-row" style="margin-top:16px;">
