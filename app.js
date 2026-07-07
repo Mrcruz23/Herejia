@@ -54,24 +54,6 @@ const DEFAULT_STATE = {
 };
 let state = { ...DEFAULT_STATE };
 
-// Paleta curada para color pop y filtro de color: reemplaza la paleta de
-// colores muy saturados que sugiere el selector nativo del navegador/celular
-// (que rompía con la estética general) por tonos que van con la temática.
-const MEDIEVAL_PALETTE = [
-  '#7a1f1f', // sangre
-  '#5c1a2e', // vino
-  '#8a6a3f', // bronce
-  '#a35a2e', // óxido
-  '#a9812f', // oro viejo
-  '#cbb08a', // hueso / pergamino
-  '#4a5a3a', // musgo
-  '#4a6a5c', // verdín
-  '#3a4a5c', // hierro
-  '#1a2440', // noche
-  '#6e6a62', // ceniza
-  '#17130f', // obsidiana
-];
-
 // ---------------- PRESETS ----------------
 // Perfiles derivados del look de referencia: negros hundidos, grano visible,
 // tinte frío-verdoso en sombras, contraste alto sin quemar blancos.
@@ -392,23 +374,6 @@ function rgbToHsl(r, g, b){
     h *= 60;
   }
   return [h, s, l];
-}
-
-// inversa de rgbToHsl: h en grados (0-360), s y l en 0..1 -> [r,g,b] en 0..255
-function hslToRgb(h, s, l){
-  h = ((h % 360) + 360) % 360;
-  s = clamp(s, 0, 1); l = clamp(l, 0, 1);
-  const c = (1 - Math.abs(2*l - 1)) * s;
-  const x = c * (1 - Math.abs((h/60) % 2 - 1));
-  const m = l - c/2;
-  let r=0, g=0, b=0;
-  if (h < 60){ r=c; g=x; b=0; }
-  else if (h < 120){ r=x; g=c; b=0; }
-  else if (h < 180){ r=0; g=c; b=x; }
-  else if (h < 240){ r=0; g=x; b=c; }
-  else if (h < 300){ r=x; g=0; b=c; }
-  else { r=c; g=0; b=x; }
-  return [Math.round((r+m)*255), Math.round((g+m)*255), Math.round((b+m)*255)];
 }
 
 function applyPixelPipeline(imgData, w, h, st){
@@ -1125,52 +1090,12 @@ document.getElementById('cp-colorwheel').addEventListener('input', (e) => {
   if (sourceCanvas) scheduleRender();
 });
 
-// Setup genérico para el "ajuste fino" (H/S/L) y la paleta de un selector de
-// color, reutilizado tanto por color pop como por el filtro de color: pinta
-// los círculos de la paleta medieval y conecta los 3 sliders H/S/L para que
-// se pueda retocar el color elegido sin depender del diálogo nativo del
-// navegador (que en varios celulares no recuerda bien el color actual y por
-// eso "personalizado" aparecía siempre en negro).
-function setupColorFineTune(paletteId, hId, sId, lId, onColor){
-  const paletteEl = document.getElementById(paletteId);
-  MEDIEVAL_PALETTE.forEach(hex => {
-    const sw = document.createElement('div');
-    sw.className = 'palette-swatch';
-    sw.style.background = hex;
-    sw.addEventListener('click', () => {
-      const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-      onColor(r, g, b, false);
-    });
-    paletteEl.appendChild(sw);
-  });
-
-  const hInput = document.getElementById(hId);
-  const sInput = document.getElementById(sId);
-  const lInput = document.getElementById(lId);
-
-  function commitFromHSL(){
-    const [r,g,b] = hslToRgb(parseFloat(hInput.value), parseFloat(sInput.value)/100, parseFloat(lInput.value)/100);
-    // skipHSLSync=true: viene de estos mismos sliders, no hay que reescribirlos
-    // (evita saltos por redondeo al ir y volver RGB<->HSL mientras se arrastra)
-    onColor(r, g, b, true);
-  }
-  [hInput, sInput, lInput].forEach(inp => inp.addEventListener('input', commitFromHSL));
-
-  return function syncFromColor(r, g, b){
-    const [h, s, l] = rgbToHsl(r, g, b);
-    hInput.value = Math.round(h);
-    sInput.value = Math.round(s * 100);
-    lInput.value = Math.round(l * 100);
-  };
-}
-
-function setPopColor(r,g,b, skipHSLSync){
+function setPopColor(r,g,b){
   state.popColor = { r, g, b };
   const sw = document.getElementById('cp-swatch');
   sw.classList.remove('empty');
   sw.style.background = `rgb(${r},${g},${b})`;
   document.getElementById('cp-colorwheel').value = rgbToHex(r,g,b);
-  if (!skipHSLSync) cpSyncHSL(r,g,b);
 }
 function clearPopColorUI(){
   const sw = document.getElementById('cp-swatch');
@@ -1180,15 +1105,6 @@ function clearPopColorUI(){
 function rgbToHex(r,g,b){
   return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
 }
-
-const cpSyncHSL = setupColorFineTune('cp-palette', 'cp-h', 'cp-s', 'cp-l', (r,g,b,skipHSLSync) => {
-  setPopColor(r, g, b, skipHSLSync);
-  state.colorpop = true;
-  swColorpop.classList.add('on');
-  activePresetId = null;
-  markCustom();
-  if (sourceCanvas) scheduleRender();
-});
 
 // ============================================================
 // FILTRO DE COLOR ("papel celofán") — toggle, rueda de color, modo de fusión
@@ -1227,31 +1143,21 @@ tintBlendSelect.addEventListener('change', (e) => {
   if (sourceCanvas) scheduleRender();
 });
 
-function setTintColor(r,g,b, skipHSLSync){
+function setTintColor(r,g,b){
   state.tintColor = { r, g, b };
-  setTintSwatchUI(r,g,b, skipHSLSync);
+  setTintSwatchUI(r,g,b);
 }
-function setTintSwatchUI(r,g,b, skipHSLSync){
+function setTintSwatchUI(r,g,b){
   const sw = document.getElementById('tint-swatch');
   sw.classList.remove('empty');
   sw.style.background = `rgb(${r},${g},${b})`;
   document.getElementById('tint-colorwheel').value = rgbToHex(r,g,b);
-  if (!skipHSLSync) tintSyncHSL(r,g,b);
 }
 function clearTintSwatchUI(){
   const sw = document.getElementById('tint-swatch');
   sw.classList.add('empty');
   sw.style.background = 'none';
 }
-
-const tintSyncHSL = setupColorFineTune('tint-palette', 'tint-h', 'tint-s', 'tint-l', (r,g,b,skipHSLSync) => {
-  setTintColor(r, g, b, skipHSLSync);
-  state.tintOn = true;
-  swTint.classList.add('on');
-  activePresetId = null;
-  markCustom();
-  if (sourceCanvas) scheduleRender();
-});
 
 // ============================================================
 // BOTONES: reset, comparar, deshacer(simple), export
@@ -1285,52 +1191,20 @@ function endCompare(){
 btnCompare.addEventListener('pointerup', endCompare);
 btnCompare.addEventListener('pointerleave', endCompare);
 
-// ============================================================
-// EXPORTAR — pide nombre de archivo antes de descargar
-// ============================================================
-const exportScrim = document.getElementById('modal-export-scrim');
-const exportNameInput = document.getElementById('export-name-input');
-
 document.getElementById('btn-export').addEventListener('click', () => {
   if (!sourceCanvas) return;
-  exportNameInput.value = 'herejia_' + Date.now();
-  exportScrim.classList.add('show');
-  setTimeout(() => { exportNameInput.focus(); exportNameInput.select(); }, 50);
-});
-
-document.getElementById('modal-export-cancel').addEventListener('click', () => {
-  exportScrim.classList.remove('show');
-});
-
-document.getElementById('modal-export-confirm').addEventListener('click', doExport);
-exportNameInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') doExport();
-});
-
-function sanitizeFilename(name){
-  name = (name || '').trim();
-  // saca caracteres inválidos para nombres de archivo en Windows/Android/iOS
-  name = name.replace(/[\\/:*?"<>|]/g, '');
-  if (!name) name = 'herejia_' + Date.now();
-  return name.slice(0, 80);
-}
-
-function doExport(){
-  if (!sourceCanvas) return;
-  const filename = sanitizeFilename(exportNameInput.value) + '.png';
   canvas.toBlob((blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = 'herejia_' + Date.now() + '.png';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    exportScrim.classList.remove('show');
     showToast('Foto exportada ✓');
   }, 'image/png', 0.95);
-}
+});
 
 // ============================================================
 // TOAST

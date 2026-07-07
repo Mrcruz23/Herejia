@@ -347,39 +347,6 @@
   .btn-line.primary{border-color:var(--accent-dim); color:var(--accent-hi);}
   .btn-line:active{background:var(--line-soft);}
 
-  /* paleta de colores medievales (color pop y filtro de color) */
-  .palette-label{
-    font-family:var(--mono); font-size:10px; letter-spacing:0.08em;
-    color:var(--ink-faint); margin-bottom:8px;
-  }
-  .palette-row{display:flex; flex-wrap:wrap; gap:8px;}
-  .palette-swatch{
-    width:28px; height:28px; border-radius:50%;
-    border:2px solid var(--line); cursor:pointer; flex-shrink:0;
-  }
-  .palette-swatch:active{border-color:var(--accent-hi);}
-  .palette-swatch.custom-slot{
-    display:flex; align-items:center; justify-content:center;
-    border:2px dashed var(--line-soft);
-    font-family:var(--mono); font-size:14px; color:var(--ink-faint);
-    background:none;
-  }
-
-  /* ajuste fino (matiz/saturación/luz) del color personalizado elegido */
-  .hsl-fine{display:flex; flex-direction:column; gap:2px; margin-top:2px;}
-  .hsl-row{display:flex; align-items:center; gap:10px;}
-  .hsl-tag{
-    font-family:var(--mono); font-size:9.5px; letter-spacing:0.06em;
-    color:var(--ink-faint); width:34px; flex-shrink:0;
-  }
-  .hsl-row input[type=range]{flex:1;}
-  #cp-h::-webkit-slider-runnable-track, #tint-h::-webkit-slider-runnable-track{
-    background:linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000);
-  }
-  #cp-h::-moz-range-track, #tint-h::-moz-range-track{
-    background:linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000);
-  }
-
   select.select-line{
     font-family:var(--mono); font-size:11px; letter-spacing:0.05em;
     padding:9px 30px 9px 12px; border-radius:8px;
@@ -682,26 +649,6 @@
           <div class="scroll-margin"></div>
         </div>
 
-        <div class="slider-row" style="margin-top:14px;">
-          <div class="slider-main">
-            <div class="palette-label">PALETA MEDIEVAL</div>
-            <div class="palette-row" id="cp-palette"></div>
-          </div>
-          <div class="scroll-margin"></div>
-        </div>
-
-        <div class="slider-row" style="margin-top:16px;">
-          <div class="slider-main">
-            <div class="palette-label">PERSONALIZADO — AJUSTE FINO</div>
-            <div class="hsl-fine">
-              <div class="hsl-row"><span class="hsl-tag">MATIZ</span><input type="range" id="cp-h" min="0" max="360" value="0"></div>
-              <div class="hsl-row"><span class="hsl-tag">SAT.</span><input type="range" id="cp-s" min="0" max="100" value="50"></div>
-              <div class="hsl-row"><span class="hsl-tag">LUZ</span><input type="range" id="cp-l" min="0" max="100" value="50"></div>
-            </div>
-          </div>
-          <div class="scroll-margin"></div>
-        </div>
-
         <div class="slider-row" style="margin-top:16px;">
           <div class="slider-main">
             <div class="slider-label"><span>TOLERANCIA</span><span class="label-right"><span class="val" id="v-tolerance">40</span><span class="slider-reset" data-key="tolerance" title="Resetear">↺</span></span></div>
@@ -758,27 +705,6 @@
           </div>
           <div class="scroll-margin"></div>
         </div>
-
-        <div class="slider-row" style="margin-top:14px;">
-          <div class="slider-main">
-            <div class="palette-label">PALETA MEDIEVAL</div>
-            <div class="palette-row" id="tint-palette"></div>
-          </div>
-          <div class="scroll-margin"></div>
-        </div>
-
-        <div class="slider-row" style="margin-top:16px;">
-          <div class="slider-main">
-            <div class="palette-label">PERSONALIZADO — AJUSTE FINO</div>
-            <div class="hsl-fine">
-              <div class="hsl-row"><span class="hsl-tag">MATIZ</span><input type="range" id="tint-h" min="0" max="360" value="0"></div>
-              <div class="hsl-row"><span class="hsl-tag">SAT.</span><input type="range" id="tint-s" min="0" max="100" value="50"></div>
-              <div class="hsl-row"><span class="hsl-tag">LUZ</span><input type="range" id="tint-l" min="0" max="100" value="50"></div>
-            </div>
-          </div>
-          <div class="scroll-margin"></div>
-        </div>
-
         <div class="slider-row" style="margin-top:16px;">
           <div class="slider-main">
             <div class="slider-label"><span>OPACIDAD</span><span class="label-right"><span class="val" id="v-tintopacity">35</span><span class="slider-reset" data-key="tintOpacity" title="Resetear">↺</span></span></div>
@@ -821,17 +747,6 @@
     <div class="modal-btns">
       <div class="btn-line" id="modal-overwrite-cancel" style="flex:1;">CANCELAR</div>
       <div class="btn-line primary" id="modal-overwrite-confirm" style="flex:1;">SOBRESCRIBIR</div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-scrim" id="modal-export-scrim">
-  <div class="modal-sheet">
-    <h3>Exportar foto</h3>
-    <input type="text" id="export-name-input" placeholder="Nombre del archivo" maxlength="80">
-    <div class="modal-btns">
-      <div class="btn-line" id="modal-export-cancel" style="flex:1;">CANCELAR</div>
-      <div class="btn-line primary" id="modal-export-confirm" style="flex:1;">EXPORTAR</div>
     </div>
   </div>
 </div>
