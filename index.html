@@ -218,7 +218,9 @@
 
   /* ---------- PANELS ---------- */
   #panel-area{
-    flex:1; min-height:0;
+    /* la altura real la controla JS (updatePanelAreaHeight), para que siempre
+       coincida con la porción visible de la hoja y el scroll interno funcione */
+    flex:none;
     overflow-y:auto;
     padding:14px 16px calc(14px + env(safe-area-inset-bottom));
     -webkit-overflow-scrolling:touch;
@@ -284,25 +286,30 @@
     border-radius:10px;
     border:1px solid var(--line);
     background:var(--bg-well);
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:6px;
     cursor:pointer;
     position:relative;
     overflow:hidden;
   }
   .preset-card.active{border-color:var(--accent-hi); box-shadow:0 0 0 1px var(--accent-dim), 0 0 16px var(--accent-glow);}
-  .preset-card .swatch{
-    width:28px; height:28px; border-radius:7px;
-    flex-shrink:0;
-    border:1px solid rgba(0,0,0,0.3);
+  /* miniatura con el preset ya aplicado a la foto de muestra */
+  .preset-card canvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    display:block;
+  }
+  /* se usa solo antes de que cargue la foto de muestra (fallback a color plano) */
+  .preset-card .swatch-fallback{
+    position:absolute; inset:0;
   }
   .preset-card span{
+    position:absolute; left:0; right:0; bottom:0; z-index:2;
     font-family:var(--mono); font-size:9px; letter-spacing:0.04em;
-    color:var(--ink-dim); text-align:center; padding:0 6px;
+    color:var(--ink); text-align:center; padding:12px 6px 6px;
+    background:linear-gradient(0deg, rgba(5,3,2,0.88), rgba(5,3,2,0));
+    text-shadow:0 1px 2px rgba(0,0,0,0.6);
   }
-  .preset-card.active span{color:var(--ink);}
   .preset-card .del{
-    position:absolute; top:4px; right:4px;
+    position:absolute; top:4px; right:4px; z-index:3;
     width:18px; height:18px; border-radius:5px;
     background:rgba(18,12,7,0.75);
     color:var(--ink-faint);
@@ -446,7 +453,6 @@
       <svg class="cruz-svg" viewBox="0 0 25.62612 32.00489" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="M14.25792,11.36821h5.08144a1.02243,1.02243,0,0,0,1.04779-.99265c0-.49632-.40808-.40809-.66176-.2647A1.338,1.338,0,0,1,21.18663,8.7997c1.301,0,1.88733,1.73317,1.36748,2.61315,1.41592-1.04637,2.4083.98408,3.072,1.40021-.66371.41614-1.65609,2.44659-3.072,1.40022.51985.88-.06644,2.61315-1.36748,2.61315a1.33805,1.33805,0,0,1-1.46124-1.31116c.25368.14338.66176.23162.66176-.26471a1.02243,1.02243,0,0,0-1.04779-.99264H14.25792v11.4602a1.02243,1.02243,0,0,0,.99264,1.0478c.49633,0,.40809-.40809.26471-.66177a1.33806,1.33806,0,0,1,1.31116,1.46125c0,1.301-1.73318,1.88732-2.61315,1.36747,1.04637,1.41592-.98408,2.40831-1.40022,3.072-.41613-.66371-2.44658-1.6561-1.40021-3.072-.88.51985-2.61315-.06643-2.61315-1.36747a1.33806,1.33806,0,0,1,1.31116-1.46125c-.14339.25368-.23162.66177.2647.66177a1.02244,1.02244,0,0,0,.99265-1.0478V14.25792H6.28676a1.02243,1.02243,0,0,0-1.04779.99264c0,.49633.40809.40809.66177.26471a1.33806,1.33806,0,0,1-1.46125,1.31116c-1.301,0-1.88733-1.73318-1.36747-2.61315C1.6561,15.25965.66371,13.2292,0,12.81306c.66371-.41613,1.6561-2.44658,3.072-1.40021-.51986-.88.06643-2.61315,1.36747-2.61315a1.33806,1.33806,0,0,1,1.46125,1.31116c-.25368-.14339-.66177-.23162-.66177.2647a1.02243,1.02243,0,0,0,1.04779.99265h5.08145V6.28676A1.02243,1.02243,0,0,0,10.37556,5.239c-.49632,0-.40809.40809-.2647.66177A1.33806,1.33806,0,0,1,8.7997,4.43949c0-1.301,1.73317-1.88733,2.61315-1.36747C10.36648,1.6561,12.39693.66371,12.81306,0c.41614.66371,2.44659,1.6561,1.40022,3.072.88-.51986,2.61315.06643,2.61315,1.36747a1.33806,1.33806,0,0,1-1.31116,1.46125c.14338-.25368.23162-.66177-.26471-.66177a1.02243,1.02243,0,0,0-.99264,1.04779Z"/></svg>
     </div>
     <div class="hdr-actions">
-      <div class="icon-btn" id="btn-finetune" title="FineTune: ajuste de precisión">◈</div>
       <div class="icon-btn" id="btn-compare" title="Comparar (mantener)">◐</div>
       <div class="icon-btn" id="btn-reset" title="Resetear todo">↺</div>
     </div>

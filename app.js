@@ -74,6 +74,33 @@ let customPresets = [];
 try { customPresets = JSON.parse(localStorage.getItem('grano_custom_presets') || '[]'); } catch(e){ customPresets = []; }
 let activePresetId = null;
 
+// ---- foto de muestra para previsualizar los presets en la grilla ----
+// Se carga una sola vez, achicada a resolución de miniatura (liviana), y se
+// reutiliza para renderizar cada preset con sus propios ajustes aplicados.
+const THUMB_DIM = 160;
+let sampleCanvas = null;
+const sampleImg = new Image();
+sampleImg.onload = () => {
+  sampleCanvas = document.createElement('canvas');
+  sampleCanvas.width = THUMB_DIM;
+  sampleCanvas.height = THUMB_DIM;
+  const sctx = sampleCanvas.getContext('2d');
+  const s = Math.min(sampleImg.naturalWidth, sampleImg.naturalHeight);
+  const sx = (sampleImg.naturalWidth - s) / 2;
+  const sy = (sampleImg.naturalHeight - s) / 2;
+  sctx.drawImage(sampleImg, sx, sy, s, s, 0, 0, THUMB_DIM, THUMB_DIM);
+  renderPresetGrid();
+};
+sampleImg.src = 'assets/sample.jpg';
+
+function generatePresetThumbnail(vObj){
+  if (!sampleCanvas) return null;
+  const st = { ...DEFAULT_STATE, ...vObj };
+  const thumb = document.createElement('canvas');
+  renderFilteredToCanvas(thumb, sampleCanvas, st);
+  return thumb;
+}
+
 // ============================================================
 // CARGA DE IMAGEN
 // ============================================================
@@ -146,53 +173,63 @@ function scheduleRender(){
 
 function render(){
   if (!sourceCanvas) return;
+  renderFilteredToCanvas(canvas, sourceCanvas, state);
+}
+
+// ---- pipeline genérico, reutilizado tanto para el render principal como
+// para las miniaturas de presets (mismo motor, cualquier canvas de entrada/salida) ----
+function renderFilteredToCanvas(destCanvas, srcCanvas, st){
+  const w = srcCanvas.width, h = srcCanvas.height;
+  if (destCanvas.width !== w) destCanvas.width = w;
+  if (destCanvas.height !== h) destCanvas.height = h;
+  const dctx = destCanvas.getContext('2d');
 
   // 1. Filtros CSS-nativos (rápidos, aceleración por GPU): brillo/contraste/saturación/hue
-  const b = 100 + state.brightness;          // 0..200
-  const c = 100 + state.contrast;            // 0..200
-  const s = 100 + state.saturation;          // 0..200
-  const hueDeg = state.hue;
+  const b = 100 + st.brightness;          // 0..200
+  const c = 100 + st.contrast;            // 0..200
+  const s = 100 + st.saturation;          // 0..200
+  const hueDeg = st.hue;
 
-  ctx.save();
-  ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%) hue-rotate(${hueDeg}deg)`;
-  ctx.clearRect(0,0,workW,workH);
-  ctx.drawImage(sourceCanvas, 0, 0);
-  ctx.restore();
-  ctx.filter = 'none';
+  dctx.save();
+  dctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%) hue-rotate(${hueDeg}deg)`;
+  dctx.clearRect(0,0,w,h);
+  dctx.drawImage(srcCanvas, 0, 0);
+  dctx.restore();
+  dctx.filter = 'none';
 
   // 2. A partir de acá trabajamos por pixel para: temp/tint, fade, shadowtone,
   //    color-pop, grain, chroma shift, scanlines, vignette, bloom.
-  let imgData = ctx.getImageData(0, 0, workW, workH);
-  applyPixelPipeline(imgData);
-  ctx.putImageData(imgData, 0, 0);
+  let imgData = dctx.getImageData(0, 0, w, h);
+  applyPixelPipeline(imgData, w, h, st);
+  dctx.putImageData(imgData, 0, 0);
 
   // 3. Efectos que conviene hacer con canvas compositing (más baratos así)
-  if (state.vignette > 0) applyVignetteCanvas(state.vignette);
-  if (state.scanlines > 0) applyScanlinesCanvas(state.scanlines);
-  if (state.bloom > 0) applyBloomCanvas(state.bloom);
+  if (st.vignette > 0) applyVignetteCanvas(dctx, w, h, st.vignette);
+  if (st.scanlines > 0) applyScanlinesCanvas(dctx, w, h, st.scanlines);
+  if (st.bloom > 0) applyBloomCanvas(dctx, destCanvas, w, h, st.bloom);
 }
 
 function clamp(v, lo, hi){ return v < lo ? lo : (v > hi ? hi : v); }
 
-function applyPixelPipeline(imgData){
+function applyPixelPipeline(imgData, w, h, st){
   const data = imgData.data;
   const len = data.length;
 
-  const temp = state.temp;               // -100..100
-  const tint = state.tint;                // -100..100 (negativo=verde, positivo=magenta)
-  const fade = state.fade / 100;          // 0..1
-  const shadowtone = state.shadowtone / 100; // 0..1
-  const grainAmt = state.grain / 100;
-  const chromaAmt = state.chroma;
-  const shadowGrainAmt = state.shadowgrain / 100;
+  const temp = st.temp;               // -100..100
+  const tint = st.tint;                // -100..100 (negativo=verde, positivo=magenta)
+  const fade = st.fade / 100;          // 0..1
+  const shadowtone = st.shadowtone / 100; // 0..1
+  const grainAmt = st.grain / 100;
+  const chromaAmt = st.chroma;
+  const shadowGrainAmt = st.shadowgrain / 100;
 
-  const popActive = state.colorpop && state.popColor;
+  const popActive = st.colorpop && st.popColor;
   let pr=0, pg=0, pb=0, tolerance=0, feather=0, popBoost=0;
   if (popActive){
-    pr = state.popColor.r; pg = state.popColor.g; pb = state.popColor.b;
-    tolerance = state.tolerance;
-    feather = state.feather;
-    popBoost = state.popBoost / 100;
+    pr = st.popColor.r; pg = st.popColor.g; pb = st.popColor.b;
+    tolerance = st.tolerance;
+    feather = st.feather;
+    popBoost = st.popBoost / 100;
   }
 
   // fade lift: sube el piso de negros y baja levemente el techo de blancos (look "film")
@@ -203,7 +240,6 @@ function applyPixelPipeline(imgData){
   // chroma shift: desplazamiento horizontal de canal R y B (glitch/analógico sutil)
   const shiftPx = Math.round((chromaAmt / 100) * 4);
 
-  const w = workW, h = workH;
   const srcCopy = shiftPx > 0 ? new Uint8ClampedArray(data) : null;
 
   for (let i = 0; i < len; i += 4){
@@ -294,45 +330,42 @@ function applyPixelPipeline(imgData){
   }
 }
 
-function applyVignetteCanvas(amount){
-  const w = workW, h = workH;
-  const grad = ctx.createRadialGradient(
+function applyVignetteCanvas(ctxRef, w, h, amount){
+  const grad = ctxRef.createRadialGradient(
     w/2, h/2, Math.min(w,h) * 0.25,
     w/2, h/2, Math.max(w,h) * 0.72
   );
   const a = (amount/100) * 0.85;
   grad.addColorStop(0, 'rgba(0,0,0,0)');
   grad.addColorStop(1, `rgba(0,0,0,${a})`);
-  ctx.save();
-  ctx.fillStyle = grad;
-  ctx.fillRect(0,0,w,h);
-  ctx.restore();
+  ctxRef.save();
+  ctxRef.fillStyle = grad;
+  ctxRef.fillRect(0,0,w,h);
+  ctxRef.restore();
 }
 
-function applyScanlinesCanvas(amount){
-  const w = workW, h = workH;
+function applyScanlinesCanvas(ctxRef, w, h, amount){
   const a = (amount/100) * 0.35;
-  ctx.save();
-  ctx.globalAlpha = a;
-  ctx.fillStyle = '#000';
+  ctxRef.save();
+  ctxRef.globalAlpha = a;
+  ctxRef.fillStyle = '#000';
   for (let y = 0; y < h; y += 3){
-    ctx.fillRect(0, y, w, 1);
+    ctxRef.fillRect(0, y, w, 1);
   }
-  ctx.restore();
+  ctxRef.restore();
 }
 
-function applyBloomCanvas(amount){
-  const w = workW, h = workH;
+function applyBloomCanvas(ctxRef, canvasRef, w, h, amount){
   const off = document.createElement('canvas');
   off.width = w; off.height = h;
   const octx = off.getContext('2d');
   octx.filter = `blur(${Math.round(4 + amount/8)}px) brightness(140%)`;
-  octx.drawImage(canvas, 0, 0);
-  ctx.save();
-  ctx.globalAlpha = clamp(amount/100, 0, 1) * 0.45;
-  ctx.globalCompositeOperation = 'screen';
-  ctx.drawImage(off, 0, 0);
-  ctx.restore();
+  octx.drawImage(canvasRef, 0, 0);
+  ctxRef.save();
+  ctxRef.globalAlpha = clamp(amount/100, 0, 1) * 0.45;
+  ctxRef.globalCompositeOperation = 'screen';
+  ctxRef.drawImage(off, 0, 0);
+  ctxRef.restore();
 }
 
 // ============================================================
@@ -359,14 +392,6 @@ const sliderDefs = [
   ['s-popboost','v-popboost','popBoost', v=>v],
 ];
 
-// ---- FineTune: cuando está activo, arrastrar un slider mueve el valor a una
-// fracción de la velocidad normal (como el modo fino de G-Stomper), para poder
-// elegir el número exacto sin pasarse. Se logra interceptando el gesto con
-// Pointer Events en vez de dejar que el <input type=range> nativo salte
-// directo a la posición X del dedo. ----
-let fineTuneActive = false;
-const FINE_TUNE_FACTOR = 0.22; // fracción de velocidad normal en modo fino
-
 sliderDefs.forEach(([inputId, labelId, key, fmt]) => {
   const input = document.getElementById(inputId);
   const label = document.getElementById(labelId);
@@ -382,37 +407,8 @@ sliderDefs.forEach(([inputId, labelId, key, fmt]) => {
   }
 
   input.addEventListener('input', () => {
-    // en modo normal, el input nativo ya trae el valor correcto
-    if (fineTuneActive) return; // en fino, el valor lo maneja el pointerdown/move de abajo
     commitValue(parseInt(input.value, 10));
   });
-
-  let fineDragStartX = 0;
-  let fineDragStartVal = 0;
-  input.addEventListener('pointerdown', (e) => {
-    if (!fineTuneActive) return;
-    // evitamos que el input nativo salte a la posición del dedo; nosotros
-    // manejamos el valor a mano con el delta de movimiento
-    e.preventDefault();
-    input.setPointerCapture(e.pointerId);
-    fineDragStartX = e.clientX;
-    fineDragStartVal = parseFloat(input.value);
-  });
-  input.addEventListener('pointermove', (e) => {
-    if (!fineTuneActive || e.buttons === 0) return;
-    const min = parseFloat(input.min), max = parseFloat(input.max);
-    const range = max - min;
-    const deltaPx = e.clientX - fineDragStartX;
-    const rect = input.getBoundingClientRect();
-    const deltaVal = (deltaPx / rect.width) * range * FINE_TUNE_FACTOR;
-    commitValue(fineDragStartVal + deltaVal);
-  });
-});
-
-document.getElementById('btn-finetune').addEventListener('click', () => {
-  fineTuneActive = !fineTuneActive;
-  document.getElementById('btn-finetune').classList.toggle('on', fineTuneActive);
-  showToast(fineTuneActive ? 'Ajuste fino activado' : 'Ajuste fino desactivado');
 });
 
 function syncSlidersFromState(){
@@ -475,32 +471,50 @@ document.querySelectorAll('.tab').forEach(tab => {
 // ============================================================
 // PRESETS UI
 // ============================================================
-function renderPresetGrid(){
-  const grid = document.getElementById('preset-grid');
-  grid.innerHTML = '';
+function buildPresetCard(p, isCustom){
+  const card = document.createElement('div');
+  card.className = 'preset-card' + (isCustom ? ' custom' : '') + (activePresetId === p.id ? ' active' : '');
 
-  BUILTIN_PRESETS.forEach(p => {
-    const card = document.createElement('div');
-    card.className = 'preset-card' + (activePresetId === p.id ? ' active' : '');
-    card.innerHTML = `<div class="swatch" style="background:${p.swatch}"></div><span>${p.name}</span>`;
-    card.addEventListener('click', () => applyPreset(p));
-    grid.appendChild(card);
-  });
+  const thumb = generatePresetThumbnail(p.v);
+  if (thumb){
+    card.appendChild(thumb);
+  } else {
+    // la foto de muestra todavía no cargó: mostramos el color plano como placeholder
+    const fallback = document.createElement('div');
+    fallback.className = 'swatch-fallback';
+    fallback.style.background = p.swatch;
+    card.appendChild(fallback);
+  }
 
-  customPresets.forEach(p => {
-    const card = document.createElement('div');
-    card.className = 'preset-card custom' + (activePresetId === p.id ? ' active' : '');
-    card.innerHTML = `<div class="swatch" style="background:${p.swatch}"></div><span>${p.name}</span><div class="del">✕</div>`;
+  const label = document.createElement('span');
+  label.textContent = p.name;
+  card.appendChild(label);
+
+  if (isCustom){
+    const del = document.createElement('div');
+    del.className = 'del';
+    del.textContent = '✕';
+    card.appendChild(del);
     card.addEventListener('click', (e) => {
-      if (e.target.classList.contains('del')){
+      if (e.target === del){
         e.stopPropagation();
         deleteCustomPreset(p.id);
         return;
       }
       applyPreset(p);
     });
-    grid.appendChild(card);
-  });
+  } else {
+    card.addEventListener('click', () => applyPreset(p));
+  }
+
+  return card;
+}
+
+function renderPresetGrid(){
+  const grid = document.getElementById('preset-grid');
+  grid.innerHTML = '';
+  BUILTIN_PRESETS.forEach(p => grid.appendChild(buildPresetCard(p, false)));
+  customPresets.forEach(p => grid.appendChild(buildPresetCard(p, true)));
 }
 
 function applyPreset(p){
@@ -877,6 +891,7 @@ const sheetEl = document.getElementById('sheet');
 const handleArea = document.getElementById('sheet-handle-area');
 const headerEl = document.querySelector('header');
 const bottombarEl = document.getElementById('bottombar');
+const panelAreaEl = document.getElementById('panel-area');
 
 // medimos la altura real del bottombar (varía según safe-area-inset-bottom
 // del dispositivo) y la exponemos como variable CSS para que el sheet
@@ -912,6 +927,23 @@ function setSheetTranslate(px, animate = false){
   currentTranslate = Math.max(min, Math.min(max, px));
   sheetEl.classList.toggle('animated', animate);
   sheetEl.style.transform = `translateY(${currentTranslate}px)`;
+  updatePanelAreaHeight();
+}
+
+// El sheet se mueve con transform (rápido, sin recalcular layout), pero eso
+// significa que su caja interna sigue teniendo siempre la misma altura total
+// aunque quede parcialmente tapado por el bottombar al arrastrarlo hacia abajo.
+// Sin esto, el contenido "de más" queda escondido fuera de la parte visible
+// en vez de quedar disponible con scroll. Por eso recalculamos la altura
+// REAL y visible de #panel-area en cada movimiento, así el overflow-y:auto
+// que ya tiene siempre puede scrollear justo lo que sobra.
+function updatePanelAreaHeight(){
+  if (!panelAreaEl) return;
+  const bottombarHeight = bottombarEl.getBoundingClientRect().height;
+  const visibleBottom = window.innerHeight - bottombarHeight;
+  const panelTop = panelAreaEl.getBoundingClientRect().top;
+  const h = Math.max(0, visibleBottom - panelTop);
+  panelAreaEl.style.height = h + 'px';
 }
 
 // posiciones con nombre, usadas solo para gestos puntuales (auto-expandir al
