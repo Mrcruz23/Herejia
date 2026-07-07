@@ -37,7 +37,7 @@
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-touch-callout:none;}
   html,body{
     margin:0; padding:0; height:100%; overflow:hidden;
     background:var(--bg-photo); color:var(--ink);
@@ -88,6 +88,8 @@
     display:flex; align-items:center; justify-content:center;
     font-size:15px;
     cursor:pointer;
+    touch-action:manipulation;
+    -webkit-touch-callout:none;
   }
   .icon-btn:active{background:var(--line-soft); color:var(--ink);}
   .icon-btn.on{color:var(--accent-hi); border-color:var(--accent-dim); background:var(--accent-glow);}
@@ -817,6 +819,17 @@
     <div class="modal-btns">
       <div class="btn-line" id="modal-overwrite-cancel" style="flex:1;">CANCELAR</div>
       <div class="btn-line primary" id="modal-overwrite-confirm" style="flex:1;">SOBRESCRIBIR</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-scrim" id="export-modal-scrim">
+  <div class="modal-sheet">
+    <h3>Exportar foto</h3>
+    <input type="text" id="export-name-input" placeholder="Nombre del archivo" maxlength="60">
+    <div class="modal-btns">
+      <div class="btn-line" id="export-modal-cancel" style="flex:1;">CANCELAR</div>
+      <div class="btn-line primary" id="export-modal-confirm" style="flex:1;">EXPORTAR</div>
     </div>
   </div>
 </div>

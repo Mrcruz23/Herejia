@@ -1158,6 +1158,9 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 
 let comparing = false;
 const btnCompare = document.getElementById('btn-compare');
+// Evita el menú contextual / vibración háptica de "mantener presionado" que
+// el sistema (Android/Brave) dispara por defecto en un long-press.
+btnCompare.addEventListener('contextmenu', (e) => e.preventDefault());
 btnCompare.addEventListener('pointerdown', () => {
   if (!sourceCanvas) return;
   comparing = true;
@@ -1174,19 +1177,50 @@ function endCompare(){
 btnCompare.addEventListener('pointerup', endCompare);
 btnCompare.addEventListener('pointerleave', endCompare);
 
+// ============================================================
+// EXPORTAR — pide un nombre de archivo antes de descargar
+// ============================================================
+const exportModalScrim = document.getElementById('export-modal-scrim');
+const exportNameInput = document.getElementById('export-name-input');
+
+function sanitizeFilename(name){
+  // saca caracteres problemáticos para nombres de archivo, conserva acentos/ñ
+  return name.replace(/[\\/:*?"<>|]/g, '').trim();
+}
+
 document.getElementById('btn-export').addEventListener('click', () => {
   if (!sourceCanvas) return;
+  exportNameInput.value = 'herejia_' + Date.now();
+  exportModalScrim.classList.add('show');
+  setTimeout(() => { exportNameInput.focus(); exportNameInput.select(); }, 50);
+});
+
+function closeExportModal(){
+  exportModalScrim.classList.remove('show');
+}
+document.getElementById('export-modal-cancel').addEventListener('click', closeExportModal);
+exportModalScrim.addEventListener('click', (e) => {
+  if (e.target === exportModalScrim) closeExportModal();
+});
+
+function doExport(){
+  let name = sanitizeFilename(exportNameInput.value) || ('herejia_' + Date.now());
   canvas.toBlob((blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'herejia_' + Date.now() + '.png';
+    a.download = name + '.png';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 2000);
     showToast('Foto exportada ✓');
   }, 'image/png', 0.95);
+  closeExportModal();
+}
+document.getElementById('export-modal-confirm').addEventListener('click', doExport);
+exportNameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doExport();
 });
 
 // ============================================================
