@@ -347,6 +347,16 @@
   .btn-line.primary{border-color:var(--accent-dim); color:var(--accent-hi);}
   .btn-line:active{background:var(--line-soft);}
 
+  select.select-line{
+    font-family:var(--mono); font-size:11px; letter-spacing:0.05em;
+    padding:9px 30px 9px 12px; border-radius:8px;
+    background:var(--bg-well) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a49070'/%3E%3C/svg%3E") no-repeat right 12px center;
+    border:1px solid var(--line);
+    color:var(--ink);
+    -webkit-appearance:none; appearance:none;
+    cursor:pointer;
+  }
+
   .toggle-row{
     display:flex; align-items:center; justify-content:space-between;
     padding:11px 0; border-top:1px solid var(--line-soft);
@@ -489,6 +499,7 @@
       <div class="tab" data-panel="color">TONO</div>
       <div class="tab" data-panel="grain">RUIDO / LOOK</div>
       <div class="tab" data-panel="colorpop">COLOR POP</div>
+      <div class="tab" data-panel="tint">FILTRO</div>
     </div>
 
     <div id="panel-area">
@@ -656,6 +667,48 @@
           <div class="slider-main">
             <div class="slider-label"><span>INTENSIDAD DEL COLOR</span><span class="label-right"><span class="val" id="v-popboost">20</span><span class="slider-reset" data-key="popBoost" title="Resetear">↺</span></span></div>
             <input type="range" id="s-popboost" min="0" max="100" value="20">
+          </div>
+          <div class="scroll-margin"></div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-tint">
+        <div class="slider-row" style="margin-bottom:0;">
+          <div class="slider-main">
+            <div class="toggle-row" style="border-top:none; padding:0 0 11px;">
+              <div>
+                <div class="t-label">Activar filtro de color</div>
+                <div class="t-sub">Capa de color tipo papel celofán, con modo de fusión y opacidad</div>
+              </div>
+              <div class="switch" id="sw-tint"></div>
+            </div>
+          </div>
+          <div class="scroll-margin"></div>
+        </div>
+        <div class="slider-row" style="margin-top:6px;">
+          <div class="slider-main">
+            <div class="colorpop-row">
+              <div class="cp-swatch empty" id="tint-swatch"></div>
+              <div class="cp-actions">
+                <input type="color" id="tint-colorwheel" value="#a9812f">
+                <select id="tint-blend" class="select-line">
+                  <option value="multiply">MULTIPLICAR</option>
+                  <option value="overlay">SUPERPONER</option>
+                  <option value="soft-light">LUZ SUAVE</option>
+                  <option value="screen">TRAMA (LUZ)</option>
+                  <option value="color">COLOR</option>
+                  <option value="color-dodge">SOBREEXPONER</option>
+                  <option value="hard-light">LUZ INTENSA</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="scroll-margin"></div>
+        </div>
+        <div class="slider-row" style="margin-top:16px;">
+          <div class="slider-main">
+            <div class="slider-label"><span>OPACIDAD</span><span class="label-right"><span class="val" id="v-tintopacity">35</span><span class="slider-reset" data-key="tintOpacity" title="Resetear">↺</span></span></div>
+            <input type="range" id="s-tintopacity" min="0" max="100" value="35">
           </div>
           <div class="scroll-margin"></div>
         </div>

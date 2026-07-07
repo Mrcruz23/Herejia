@@ -49,7 +49,8 @@ const DEFAULT_STATE = {
   brightness: 0, contrast: 0, saturation: 0, hue: 0, sharpen: 0,
   temp: 0, tint: 0, fade: 0, vignette: 0, shadowtone: 0,
   grain: 0, chroma: 0, scanlines: 0, bloom: 0, shadowgrain: 0,
-  colorpop: false, popColor: null, tolerance: 40, feather: 20, popBoost: 20
+  colorpop: false, popColor: null, tolerance: 40, feather: 20, popBoost: 20,
+  tintOn: false, tintColor: null, tintBlend: 'multiply', tintOpacity: 35
 };
 let state = { ...DEFAULT_STATE };
 
@@ -58,63 +59,111 @@ let state = { ...DEFAULT_STATE };
 // tinte frío-verdoso en sombras, contraste alto sin quemar blancos.
 const BUILTIN_PRESETS = [
   {
-    id:'nocturno', name:'NOCTURNO', swatch:'#1b2624',
-    v:{ brightness:-8, contrast:22, saturation:-18, hue:0, sharpen:10,
-        temp:-14, tint:6, fade:8, vignette:38, shadowtone:55,
-        grain:35, chroma:8, scanlines:0, bloom:12, shadowgrain:40 }
+    // ex "NOCTURNO": misma base fría de cripta, con más contraste y un velo
+    // gris-azulado (el "aire" húmedo de una cripta) sobre las sombras ya
+    // azuladas que tenía el original.
+    id:'cripta', name:'CRIPTA', swatch:'#3a4a5c',
+    v:{ brightness:-8, contrast:26, saturation:-18, hue:0, sharpen:10,
+        temp:-16, tint:8, fade:8, vignette:38, shadowtone:58,
+        grain:35, chroma:8, scanlines:0, bloom:10, shadowgrain:42,
+        tintOn:true, tintColor:{r:70,g:88,b:108}, tintBlend:'soft-light', tintOpacity:16 }
   },
   {
-    id:'vhs_frio', name:'VHS FRÍO', swatch:'#28413d',
-    v:{ brightness:-4, contrast:16, saturation:-25, hue:-6, sharpen:0,
-        temp:-22, tint:10, fade:12, vignette:28, shadowtone:60,
-        grain:45, chroma:22, scanlines:35, bloom:18, shadowgrain:30 }
+    // ex "SOMBRA MUDA": bajado el contraste a propósito (el original era
+    // duro) para el ánimo sobrio/conventual, manteniendo sombras profundas.
+    id:'monasterio', name:'MONASTERIO', swatch:'#4a463e',
+    v:{ brightness:-14, contrast:10, saturation:-38, hue:0, sharpen:2,
+        temp:-6, tint:6, fade:10, vignette:34, shadowtone:62,
+        grain:22, chroma:2, scanlines:0, bloom:4, shadowgrain:30 }
   },
   {
-    id:'analogico', name:'ANALÓGICO', swatch:'#3a3630',
-    v:{ brightness:2, contrast:12, saturation:-10, hue:4, sharpen:0,
-        temp:10, tint:-4, fade:22, vignette:20, shadowtone:15,
-        grain:55, chroma:5, scanlines:0, bloom:8, shadowgrain:15 }
-  },
-  {
-    id:'sombra_muda', name:'SOMBRA MUDA', swatch:'#14201d',
-    v:{ brightness:-18, contrast:30, saturation:-35, hue:0, sharpen:5,
-        temp:-8, tint:8, fade:4, vignette:50, shadowtone:65,
-        grain:30, chroma:4, scanlines:0, bloom:6, shadowgrain:45 }
-  },
-  {
-    id:'cinema_teal', name:'CINE TEAL', swatch:'#215048',
+    // ex "CINE TEAL": mismo teal cinematográfico, bloom subido para que las
+    // luces altas "sangren" como vitral, con un velo de luz coloreada.
+    id:'catedral', name:'CATEDRAL', swatch:'#3f6e68',
     v:{ brightness:0, contrast:20, saturation:-5, hue:-10, sharpen:8,
-        temp:-16, tint:14, fade:6, vignette:30, shadowtone:70,
-        grain:15, chroma:6, scanlines:0, bloom:20, shadowgrain:20 }
+        temp:-16, tint:14, fade:6, vignette:28, shadowtone:70,
+        grain:12, chroma:6, scanlines:0, bloom:32, shadowgrain:18,
+        tintOn:true, tintColor:{r:110,g:150,b:150}, tintBlend:'screen', tintOpacity:12 }
   },
   {
-    id:'ruina', name:'RUINA', swatch:'#2b2b2b',
-    v:{ brightness:-12, contrast:26, saturation:-45, hue:0, sharpen:12,
-        temp:-4, tint:2, fade:10, vignette:42, shadowtone:20,
-        grain:50, chroma:10, scanlines:0, bloom:5, shadowgrain:35 }
+    // ex "RUINA": misma desaturación fuerte y grano pesado, sumando el
+    // tono verdoso-sucio de descomposición.
+    id:'plaga', name:'PLAGA', swatch:'#5a6238',
+    v:{ brightness:-12, contrast:26, saturation:-48, hue:8, sharpen:12,
+        temp:-2, tint:10, fade:10, vignette:42, shadowtone:22,
+        grain:55, chroma:10, scanlines:0, bloom:4, shadowgrain:36,
+        tintOn:true, tintColor:{r:96,g:104,b:56}, tintBlend:'multiply', tintOpacity:18 }
   },
   {
-    id:'sepia', name:'SEPIA', swatch:'#6b4a2f',
-    v:{ brightness:2, contrast:10, saturation:-65, hue:6, sharpen:0,
-        temp:38, tint:-8, fade:20, vignette:26, shadowtone:8,
-        grain:22, chroma:0, scanlines:0, bloom:10, shadowgrain:8 }
+    // ex "SEPIA": mismo cálido desvanecido, ahora con el sepia también como
+    // velo de color (además del viraje de temperatura), más notorio.
+    id:'pergamino', name:'PERGAMINO', swatch:'#6b4a2f',
+    v:{ brightness:2, contrast:10, saturation:-62, hue:6, sharpen:0,
+        temp:36, tint:-8, fade:24, vignette:24, shadowtone:8,
+        grain:20, chroma:0, scanlines:0, bloom:10, shadowgrain:8,
+        tintOn:true, tintColor:{r:196,g:158,b:94}, tintBlend:'multiply', tintOpacity:16 }
   },
   {
-    // Empujado más fuerte de saturación/contraste para acercarse al look
-    // "punchy" tipo cámara compacta de los 90 sobreexpuesta en color. Es un
-    // punto de partida: la saturación de este motor pega distinto que la de
-    // otras apps, así que probablemente NO haga falta llevarla al máximo —
-    // se puede afinar en vivo desde el panel BÁSICO y volver a guardar.
-    id:'noventas', name:"NOSTALGIA 90'S", swatch:'#8a6a3f',
-    v:{ brightness:6, contrast:22, saturation:46, hue:-4, sharpen:0,
-        temp:16, tint:-10, fade:6, vignette:14, shadowtone:14,
-        grain:30, chroma:20, scanlines:20, bloom:20, shadowgrain:10 }
+    // ex "VHS FRÍO": el degradado analógico frío queda perfecto para un
+    // "interrogatorio" — subido el contraste y los rastros RGB (con el
+    // arreglo del bug, ahora sí conviven con la temperatura y el tinte).
+    id:'inquisidor', name:'INQUISIDOR', swatch:'#28413d',
+    v:{ brightness:-6, contrast:24, saturation:-25, hue:-6, sharpen:0,
+        temp:-22, tint:10, fade:12, vignette:30, shadowtone:60,
+        grain:42, chroma:26, scanlines:38, bloom:14, shadowgrain:32 }
   },
   {
-    id:'tecnicolor', name:'TECNICOLOR', swatch:'#a83232',
-    v:{ brightness:2, contrast:24, saturation:24, hue:0, sharpen:6,
-        temp:6, tint:-2, fade:2, vignette:14, shadowtone:12,
-        grain:8, chroma:0, scanlines:0, bloom:10, shadowgrain:0 }
+    // ex "ANALÓGICO": grano subido para textura de papel viejo, más cálido
+    // y con el desvanecido bien marcado.
+    id:'manuscrito', name:'MANUSCRITO', swatch:'#3a3630',
+    v:{ brightness:2, contrast:14, saturation:-14, hue:4, sharpen:0,
+        temp:16, tint:-4, fade:30, vignette:20, shadowtone:15,
+        grain:62, chroma:5, scanlines:0, bloom:8, shadowgrain:18 }
+  },
+  {
+    // ex "NOSTALGIA 90'S": la saturación/matiz alta ahora leen como colores
+    // "transmutados", con un velo verde-dorado tipo laboratorio alquímico.
+    id:'alquimia', name:'ALQUIMIA', swatch:'#5a8a5f',
+    v:{ brightness:6, contrast:22, saturation:50, hue:18, sharpen:0,
+        temp:8, tint:-6, fade:2, vignette:16, shadowtone:14,
+        grain:16, chroma:16, scanlines:0, bloom:18, shadowgrain:8,
+        tintOn:true, tintColor:{r:100,g:170,b:110}, tintBlend:'color-dodge', tintOpacity:10 }
+  },
+  {
+    // ex "TECNICOLOR": mismo punch saturado, con un dorado suave encima
+    // como si fuera un objeto sagrado iluminado por velas.
+    id:'reliquia', name:'RELIQUIA', swatch:'#c9a05a',
+    v:{ brightness:4, contrast:26, saturation:28, hue:0, sharpen:6,
+        temp:10, tint:-2, fade:0, vignette:12, shadowtone:10,
+        grain:6, chroma:0, scanlines:0, bloom:22, shadowgrain:0,
+        tintOn:true, tintColor:{r:214,g:176,b:96}, tintBlend:'overlay', tintOpacity:12 }
+  },
+  {
+    id:'candelabro', name:'CANDELABRO', swatch:'#c07a34',
+    v:{ brightness:-4, contrast:16, saturation:-8, hue:2, sharpen:0,
+        temp:30, tint:-6, fade:8, vignette:44, shadowtone:32,
+        grain:14, chroma:0, scanlines:0, bloom:34, shadowgrain:10,
+        tintOn:true, tintColor:{r:214,g:132,b:60}, tintBlend:'overlay', tintOpacity:20 }
+  },
+  {
+    id:'ceniza', name:'CENIZA', swatch:'#6e6a62',
+    v:{ brightness:-10, contrast:18, saturation:-80, hue:0, sharpen:8,
+        temp:-2, tint:0, fade:6, vignette:30, shadowtone:20,
+        grain:48, chroma:4, scanlines:0, bloom:2, shadowgrain:26,
+        tintOn:true, tintColor:{r:128,g:126,b:120}, tintBlend:'soft-light', tintOpacity:20 }
+  },
+  {
+    id:'vispera', name:'VÍSPERA', swatch:'#1a2440',
+    v:{ brightness:-22, contrast:20, saturation:-20, hue:0, sharpen:0,
+        temp:-30, tint:12, fade:2, vignette:60, shadowtone:50,
+        grain:24, chroma:14, scanlines:12, bloom:8, shadowgrain:22,
+        tintOn:true, tintColor:{r:20,g:30,b:60}, tintBlend:'multiply', tintOpacity:10 }
+  },
+  {
+    id:'necropolis', name:'NECRÓPOLIS', swatch:'#1a1a1a',
+    v:{ brightness:-6, contrast:52, saturation:-96, hue:0, sharpen:16,
+        temp:-14, tint:4, fade:0, vignette:36, shadowtone:12,
+        grain:60, chroma:0, scanlines:0, bloom:0, shadowgrain:14 }
   }
 ];
 
@@ -283,9 +332,26 @@ function renderFilteredToCanvas(destCanvas, srcCanvas, st){
   if (st.sharpen > 0) applySharpenCanvas(dctx, destCanvas, w, h, st.sharpen);
 
   // 4. Efectos que conviene hacer con canvas compositing (más baratos así)
+  // El filtro de color va antes de la viñeta: así la viñeta enmarca por
+  // encima del color, en vez de quedar "lavada" por él.
+  if (st.tintOn && st.tintColor && st.tintOpacity > 0) applyColorOverlayCanvas(dctx, w, h, st);
   if (st.vignette > 0) applyVignetteCanvas(dctx, w, h, st.vignette);
   if (st.scanlines > 0) applyScanlinesCanvas(dctx, w, h, st.scanlines);
   if (st.bloom > 0) applyBloomCanvas(dctx, destCanvas, w, h, st.bloom);
+}
+
+// Filtro de color tipo "papel celofán": una capa de color plana compositada
+// sobre toda la imagen con un modo de fusión y opacidad ajustables. Al ser
+// un solo fillRect con blend mode nativo del canvas (acelerado por el propio
+// navegador, no una pasada por pixel en JS), es prácticamente gratis sin
+// importar la resolución de la foto — se puede sumar sin miedo a que pese.
+function applyColorOverlayCanvas(ctxRef, w, h, st){
+  ctxRef.save();
+  ctxRef.globalAlpha = clamp(st.tintOpacity / 100, 0, 1);
+  ctxRef.globalCompositeOperation = st.tintBlend || 'multiply';
+  ctxRef.fillStyle = `rgb(${st.tintColor.r},${st.tintColor.g},${st.tintColor.b})`;
+  ctxRef.fillRect(0, 0, w, h);
+  ctxRef.restore();
 }
 
 function clamp(v, lo, hi){ return v < lo ? lo : (v > hi ? hi : v); }
@@ -342,8 +408,6 @@ function applyPixelPipeline(imgData, w, h, st){
 
   // chroma shift: desplazamiento horizontal de canal R y B (glitch/analógico sutil)
   const shiftPx = Math.round((chromaAmt / 100) * 4);
-
-  const srcCopy = shiftPx > 0 ? new Uint8ClampedArray(data) : null;
 
   // Textura de ruido: antes se llamaba Math.random() por cada canal de cada
   // pixel, en cada frame — con fotos de ~2.5 megapíxeles eso son millones de
@@ -449,8 +513,16 @@ function applyPixelPipeline(imgData, w, h, st){
     data[i+2] = b;
   }
 
-  // chroma shift (segunda pasada, usa copia sin desplazar como fuente)
-  if (shiftPx > 0 && srcCopy){
+  // chroma shift (segunda pasada, usa como fuente una copia de la imagen YA
+  // procesada por temp/tint/fade/etc — antes esta copia se tomaba ANTES de
+  // ese bloque, así que el desplazamiento pisaba los canales R y B con los
+  // valores originales sin editar. Resultado: con el shift activo (pasado
+  // ~12 de "Rastros RGB"), la temperatura desaparecía por completo —dependía
+  // 100% de R/B— y el tinte se veía "recortado" a la mitad de su efecto
+  // —solo sobrevivía en G—. Ahora el desplazamiento parte de la imagen ya
+  // graduada, y solo agrega el corrimiento de color encima.
+  if (shiftPx > 0){
+    const srcCopy = new Uint8ClampedArray(data);
     for (let y = 0; y < h; y++){
       for (let x = 0; x < w; x++){
         const idx = (y*w + x) * 4;
@@ -564,6 +636,7 @@ const sliderDefs = [
   ['s-tolerance','v-tolerance','tolerance', v=>v],
   ['s-feather','v-feather','feather', v=>v],
   ['s-popboost','v-popboost','popBoost', v=>v],
+  ['s-tintopacity','v-tintopacity','tintOpacity', v=>v],
 ];
 
 sliderDefs.forEach(([inputId, labelId, key, fmt]) => {
@@ -602,6 +675,14 @@ function syncSlidersFromState(){
     input.value = state[key];
     label.textContent = fmt(state[key]);
   });
+  // Controles del filtro de color: no son sliders genéricos, se sincronizan
+  // acá para que loadImage/applyPreset/reset los dejen siempre coherentes
+  // con el estado (evita el mismo tipo de bug que tenía el switch de
+  // color pop, que se quedaba "prendido" en pantalla sin reflejar el estado).
+  swTint.classList.toggle('on', !!state.tintOn);
+  tintBlendSelect.value = state.tintBlend || 'multiply';
+  if (state.tintColor) setTintSwatchUI(state.tintColor.r, state.tintColor.g, state.tintColor.b);
+  else clearTintSwatchUI();
 }
 
 // ---- reset individual por control: toca el botón ↺ junto a cada slider
@@ -1026,14 +1107,67 @@ function rgbToHex(r,g,b){
 }
 
 // ============================================================
+// FILTRO DE COLOR ("papel celofán") — toggle, rueda de color, modo de fusión
+// ============================================================
+const swTint = document.getElementById('sw-tint');
+const tintBlendSelect = document.getElementById('tint-blend');
+
+swTint.addEventListener('click', () => {
+  state.tintOn = !state.tintOn;
+  swTint.classList.toggle('on', state.tintOn);
+  // Sin color elegido todavía, activar el switch no se ve: le damos un color
+  // de arranque para que quede claro que ya está haciendo algo.
+  if (state.tintOn && !state.tintColor) setTintColor(169, 129, 47);
+  activePresetId = null;
+  markCustom();
+  if (sourceCanvas) scheduleRender();
+});
+
+document.getElementById('tint-colorwheel').addEventListener('input', (e) => {
+  const hex = e.target.value;
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  setTintColor(r,g,b);
+  state.tintOn = true;
+  swTint.classList.add('on');
+  activePresetId = null;
+  markCustom();
+  if (sourceCanvas) scheduleRender();
+});
+
+tintBlendSelect.addEventListener('change', (e) => {
+  state.tintBlend = e.target.value;
+  activePresetId = null;
+  markCustom();
+  if (sourceCanvas) scheduleRender();
+});
+
+function setTintColor(r,g,b){
+  state.tintColor = { r, g, b };
+  setTintSwatchUI(r,g,b);
+}
+function setTintSwatchUI(r,g,b){
+  const sw = document.getElementById('tint-swatch');
+  sw.classList.remove('empty');
+  sw.style.background = `rgb(${r},${g},${b})`;
+  document.getElementById('tint-colorwheel').value = rgbToHex(r,g,b);
+}
+function clearTintSwatchUI(){
+  const sw = document.getElementById('tint-swatch');
+  sw.classList.add('empty');
+  sw.style.background = 'none';
+}
+
+// ============================================================
 // BOTONES: reset, comparar, deshacer(simple), export
 // ============================================================
 document.getElementById('btn-reset').addEventListener('click', () => {
-  const pop = { colorpop: false, popColor: state.popColor, tolerance: state.tolerance, feather: state.feather, popBoost: state.popBoost };
   state = { ...DEFAULT_STATE };
   activePresetId = null;
   syncSlidersFromState();
   swColorpop.classList.remove('on');
+  clearPopColorUI();
   renderPresetGrid();
   if (sourceCanvas) scheduleRender();
   showToast('Ajustes reseteados');
